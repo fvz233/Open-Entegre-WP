@@ -213,6 +213,9 @@ check($owned_product_method->invoke($importer, array('sku' => 'WOO-SKU'), 999) =
 check(JobWorker::normalize_remote_batch_state(array('status' => 'PROCESSING')) === 'pending', 'Pending batch state failed.');
 check(JobWorker::normalize_remote_batch_state(array('status' => 'SUCCESS')) === 'completed', 'Successful batch state failed.');
 check(JobWorker::normalize_remote_batch_state(array('status' => 'FAILED')) === 'failed', 'Failed batch state failed.');
+check(JobWorker::normalize_remote_batch_state(array('status' => 'CANCELLED')) === 'failed', 'Cancelled (PttAvm) batch state not failed.');
+check(JobWorker::normalize_remote_batch_state(array('status' => 'WAITING')) === 'pending', 'Waiting (PttAvm) batch state not pending.');
+check(JobWorker::normalize_remote_batch_state(array('status' => 'IN_PROGRESS')) === 'pending', 'In-progress (PttAvm) batch state not pending.');
 
 $preview_alias_method = new ReflectionMethod(StockSync::class, 'group_marketplace_product_aliases');
 $preview_alias_method->setAccessible(true);

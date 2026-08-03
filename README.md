@@ -53,6 +53,19 @@ Eklenti etkinleştirildiğinde gerekli veritabanı tablolarını oluşturur ve z
 - **Senkron Merkezi:** Önizleme, manuel çalıştırma ve kuyruk işlemleri
 - **Sorular:** Pazar yerlerinden gelen müşteri soruları
 
+## Sürüm geçmişi
+
+### 1.0.46
+
+- Tüm pazaryerleri için stok/fiyat önizlemesi artık `salesPrice` (Çiçeksepeti), `sale_price` ve `price` alanlarını da okuyor.
+- PTTAVM batch tracking artık JobWorker async listesinde; `cancelled`/`canceled` durumu `failed`, `waiting`/`in_progress` durumu `pending` olarak tanınıyor.
+- Marka bulunamadığında tüm pazaryerleri için elle Marka ID + adı girişi eklendi.
+- Kategori/marka eşleme bileşeni `TrendyolCategoryMapping` → `MarketplaceCategoryMapping` olarak yeniden adlandırıldı.
+
+### 1.0.45
+
+- Pazaryeri ürün gönderimi tüm adaptörler için generalize edildi.
+
 ## Geliştirme
 
 Yönetim arayüzünün kaynak kodu `admin-ui/src` dizinindedir. Arayüzü değiştirdikten sonra:

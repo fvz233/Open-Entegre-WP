@@ -466,11 +466,14 @@ class StockSync
             $after_discount_price = ($can_push && $sync_price && $supports_discount_price)
                 ? self::get_product_discount_price($product)
                 : null;
-            if ($can_push && $sync_price && $marketplace_key === 'trendyol') {
+            if ($can_push && $sync_price && is_callable(array($adapter, 'build_price_inventory_item_from_product'))) {
                 $price_item = $adapter->build_price_inventory_item_from_product($product, false, true);
                 if (is_array($price_item)) {
-                    $after_price = self::numeric_or_null(isset($price_item['listPrice']) ? $price_item['listPrice'] : null, 2);
-                    $sale_price = self::numeric_or_null(isset($price_item['salePrice']) ? $price_item['salePrice'] : null, 2);
+                    $list_price = self::numeric_or_null(isset($price_item['listPrice']) ? $price_item['listPrice'] : (isset($price_item['price']) ? $price_item['price'] : null), 2);
+                    if ($list_price !== null) {
+                        $after_price = $list_price;
+                    }
+                    $sale_price = self::numeric_or_null(isset($price_item['salePrice']) ? $price_item['salePrice'] : (isset($price_item['salesPrice']) ? $price_item['salesPrice'] : (isset($price_item['sale_price']) ? $price_item['sale_price'] : null)), 2);
                     $after_discount_price = $sale_price !== null && $after_price !== null && $sale_price < $after_price
                         ? $sale_price
                         : null;

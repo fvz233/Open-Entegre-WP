@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
 
-function TrendyolCategoryMapping({ supplier }) {
+function MarketplaceCategoryMapping({ supplier }) {
     const marketplace = supplier.marketplace_label || supplier.name || supplier.marketplace_key;
     const [wooCategories, setWooCategories] = useState([]);
     const [mappings, setMappings] = useState({});
@@ -18,6 +18,9 @@ function TrendyolCategoryMapping({ supplier }) {
     const [brandQuery, setBrandQuery] = useState('');
     const [brandResults, setBrandResults] = useState([]);
     const [selectedBrand, setSelectedBrand] = useState(null);
+    const [manualBrand, setManualBrand] = useState(false);
+    const [manualBrandId, setManualBrandId] = useState('');
+    const [manualBrandName, setManualBrandName] = useState('');
     const [commissionRate, setCommissionRate] = useState('');
     const [feedback, setFeedback] = useState(null);
 
@@ -130,12 +133,13 @@ function TrendyolCategoryMapping({ supplier }) {
 
     const searchBrand = async () => {
         setFeedback(null);
+        setManualBrand(false);
         setLoading(true);
         try {
             const categoryId = trendyolCategory?.id || mappings[wooCategoryId]?.category_id || '';
             const res = await api.searchMarketplaceBrands(supplier.id, brandQuery, categoryId);
             setBrandResults(res.data?.items || []);
-            if (!res.data?.items?.length) setFeedback({ type: 'success', message: 'Marka bulunamadı.' });
+            if (!res.data?.items?.length) setFeedback({ type: 'success', message: 'Marka bulunamadı. Aşağıdan elle girebilirsiniz.' });
         } catch (e) {
             setFeedback({ type: 'error', message: e.response?.data?.message || `${marketplace} markaları alınamadı.` });
         }
@@ -143,18 +147,22 @@ function TrendyolCategoryMapping({ supplier }) {
     };
 
     const saveBrand = async () => {
-        if (!wooBrandKey || !selectedBrand) return;
+        const brand = manualBrand ? { id: manualBrandId.trim(), name: manualBrandName.trim() } : selectedBrand;
+        if (!wooBrandKey || !brand?.id) return;
         setFeedback(null);
         setLoading(true);
         try {
             await api.saveMarketplaceBrandMapping(supplier.id, {
                 woo_brand_key: wooBrandKey,
-                brand_id: selectedBrand.id,
-                brand_name: selectedBrand.name,
+                brand_id: brand.id,
+                brand_name: brand.name,
             });
             await load();
             setSelectedBrand(null);
             setBrandResults([]);
+            setManualBrand(false);
+            setManualBrandId('');
+            setManualBrandName('');
             setFeedback({ type: 'success', message: 'Marka eşlemesi kaydedildi.' });
         } catch (e) {
             setFeedback({ type: 'error', message: e.response?.data?.message || 'Marka eşlemesi kaydedilemedi.' });
@@ -254,6 +262,20 @@ function TrendyolCategoryMapping({ supplier }) {
                             </select>
                         )}
                         {selectedBrand && <button type="button" className="btn" onClick={saveBrand} disabled={loading || !wooBrandKey}>Eşlemeyi Kaydet</button>}
+                        {!manualBrand && (
+                            <button type="button" className="btn" style={{ fontSize: '0.85em' }} onClick={() => { setManualBrand(true); setSelectedBrand(null); }} disabled={loading}>{marketplace} markası bulunamadı mı? Elle girin</button>
+                        )}
+                        {manualBrand && (
+                            <div style={{ display: 'grid', gap: '6px' }}>
+                                <small>Marka ID ve adını pazaryeri panelinden bulun.</small>
+                                <input value={manualBrandId} onChange={e => setManualBrandId(e.target.value)} placeholder="Marka ID" />
+                                <input value={manualBrandName} onChange={e => setManualBrandName(e.target.value)} placeholder="Marka adı" />
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                    <button type="button" className="btn" onClick={saveBrand} disabled={loading || !wooBrandKey || !manualBrandId.trim()}>Eşlemeyi Kaydet</button>
+                                    <button type="button" className="btn" style={{ fontSize: '0.85em' }} onClick={() => { setManualBrand(false); setManualBrandId(''); setManualBrandName(''); }} disabled={loading}>İptal</button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
                 {Object.entries(brandMappings).map(([brandKey, mapping]) => (
@@ -267,4 +289,4 @@ function TrendyolCategoryMapping({ supplier }) {
     );
 }
 
-export default TrendyolCategoryMapping;
+export default MarketplaceCategoryMapping;
