@@ -21,6 +21,9 @@ assert.deepEqual(response.data, { success: true });
 assert.equal(request.url, 'https://example.test/wp-json/multi-sync/v1/jobs?status=pending');
 assert.equal(request.options.headers['X-WP-Nonce'], 'test-nonce');
 
+await api.getMarketplaceCategoryMappings(7);
+assert.match(request.url, /^https:\/\/example\.test\/wp-json\/multi-sync\/v1\/marketplaces\/category-mappings\/7\?_\=\d+$/);
+
 global.fetch = async () => ({
     ok: false,
     status: 500,
