@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Open Entegre
  * Description: WooCommerce icin birden fazla dis pazar yerine baglanabilen esnek senkronizasyon eklentisi.
- * Version: 1.0.48
+ * Version: 1.0.49
  * Author: Fevzi Demirtaş
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -1399,3 +1399,5 @@ function multi_sync_product_commission_quick_edit_script()
     </script>
     <?php
 }
+// KDV bulk edit
+require_once MULTI_SYNC_PLUGIN_DIR . 'includes/ui/vat-bulk-edit.php';
