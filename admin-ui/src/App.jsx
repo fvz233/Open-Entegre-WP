@@ -3,7 +3,7 @@ import api from './api';
 import Authorization from './components/Tabs/Authorization';
 import SyncSettings from './components/Tabs/SyncSettings';
 import SyncCenter from './components/Tabs/SyncCenter';
-import TrendyolCategoryMapping from './components/TrendyolCategoryMapping';
+import MarketplaceCategoryMapping from './components/MarketplaceCategoryMapping';
 import QuestionsPage from './pages/QuestionsPage';
 
 const pluginUrl = (typeof window !== 'undefined' && window.multiSyncSettings && window.multiSyncSettings.pluginUrl)
@@ -210,7 +210,7 @@ function App() {
                 {!isSyncCenterActive && activeTab === 'authorization' && !activeSupplier && <p>Pazar yeri bulunamadı.</p>}
                 {!isSyncCenterActive && activeTab === 'syncsettings' && activeSupplier && <SyncSettings supplier={activeSupplier} onSupplierUpdate={fetchSuppliers} />}
                 {!isSyncCenterActive && activeTab === 'syncsettings' && !activeSupplier && <p>Pazar yeri bulunamadı.</p>}
-                {!isSyncCenterActive && activeTab === 'mappings' && activeSupplier && <TrendyolCategoryMapping supplier={activeSupplier} />}
+                {!isSyncCenterActive && activeTab === 'mappings' && activeSupplier && <MarketplaceCategoryMapping supplier={activeSupplier} />}
                 {!isSyncCenterActive && activeTab === 'questions' && activeSupplier && <QuestionsPage key={activeSupplier.id} supplier={activeSupplier} />}
             </div>
         </div>
