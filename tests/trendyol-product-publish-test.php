@@ -139,7 +139,7 @@ $mapped = $category_fixture->build_product_item_from_product(new CategoryMappedP
     'attributes' => array(array('attributeId' => 8, 'attributeValueIds' => array(9))),
 ));
 check($mapped['categoryId'] === 2 && $mapped['attributes'][0]['attributeValueIds'] === array(9), 'Saved category mapping was not applied.');
-check($mapped['listPrice'] === 117.65 && $mapped['salePrice'] === 105.88, 'Category commission was not applied to Trendyol preview prices.');
+check($mapped['listPrice'] === 118.0 && $mapped['salePrice'] === 106.0, 'Category commission was not applied to Trendyol preview prices.');
 $GLOBALS['publish_parent'] = new PublishProduct();
 $unmapped_variation = $category_fixture->build_product_item_from_product(new ColorVariationProduct('Inox'), array(
     'category_id' => 34,

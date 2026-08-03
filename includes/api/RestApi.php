@@ -473,11 +473,17 @@ class RestApi
 
     public function preview_product_publish($request)
     {
-        $items = (new ProductPublisher())->preview((int) $request->get_param('supplier_id'));
-        if (is_wp_error($items)) {
-            return new \WP_Error($items->get_error_code(), $items->get_error_message(), array('status' => 400));
+        $preview = (new ProductPublisher())->preview((int) $request->get_param('supplier_id'));
+        if (is_wp_error($preview)) {
+            return new \WP_Error($preview->get_error_code(), $preview->get_error_message(), array('status' => 400));
         }
-        return rest_ensure_response(array('success' => true, 'items' => $items));
+        $items = isset($preview['items']) && is_array($preview['items']) ? $preview['items'] : $preview;
+        return rest_ensure_response(array(
+            'success' => true,
+            'items' => $items,
+            'catalog_products' => isset($preview['catalog_products']) ? (int) $preview['catalog_products'] : 0,
+            'catalog_error' => isset($preview['catalog_error']) ? (string) $preview['catalog_error'] : '',
+        ));
     }
 
     public function publish_products($request)

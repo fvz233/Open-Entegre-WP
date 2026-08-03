@@ -74,7 +74,7 @@ abstract class BaseMarketplace implements MarketplaceInterface
             return round((float) $price, 2);
         }
 
-        return round((float) $price / (1 - ($rate / 100)), 2);
+        return round((float) $price / (1 - ($rate / 100)));
     }
 
     protected function get_product_vat_rate($product, $fallback = '')

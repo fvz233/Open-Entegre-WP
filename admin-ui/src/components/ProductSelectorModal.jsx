@@ -57,7 +57,7 @@ function ProductSelectorModal({
                 const previewItems = res.data?.success && Array.isArray(res.data.items) ? res.data.items : [];
                 setItems(previewItems);
                 setStokKodsuzItems([]);
-                setPreviewWarning('');
+                setPreviewWarning(res.data?.catalog_error || '');
                 setSelectedSkus(new Set());
                 setPublishValues({});
                 setVariationChoices({});
@@ -213,7 +213,12 @@ function ProductSelectorModal({
 
     const renderImportAction = (item) => isProductImportPreview && item.can_import !== false && item.import_action && (
         <small style={{ marginLeft: '7px', padding: '1px 5px', borderRadius: '8px', background: '#f1f5f9', color: '#64748b', fontSize: '10px', fontWeight: 500 }}>
-            {item.import_action === 'update' ? 'Güncellenecek' : 'Yeni'}
+           {item.import_action === 'update' ? 'Güncellenecek' : 'Yeni'}
+       </small>
+   );
+    const renderPublishAction = (item) => isProductPublishPreview && item.upload_action && (
+        <small style={{ marginLeft: '7px', padding: '1px 5px', borderRadius: '8px', background: item.upload_action === 'update' ? '#ecfdf3' : (item.upload_action === 'unchanged' ? '#f8fafc' : '#eff6ff'), color: item.upload_action === 'update' ? '#067647' : (item.upload_action === 'unchanged' ? '#98a2b3' : '#1d4ed8'), fontSize: '10px', fontWeight: 500 }}>
+            {item.upload_action === 'update' ? 'Güncellenecek' : (item.upload_action === 'unchanged' ? 'Değişiklik yok' : 'Yüklenecek')}
         </small>
     );
 
@@ -310,7 +315,9 @@ function ProductSelectorModal({
                 )}
 
                 {loading ? (
-                    <div>Onizleme yukleniyor...</div>
+                    <div style={{ textAlign: 'center', color: '#475467', padding: '48px 0', fontWeight: 500 }}>
+                        {isProductPublishPreview ? 'Pazar yerindeki mevcut urunler aliniyor, katalog karsilastiriliyor...' : 'Onizleme yukleniyor...'}
+                    </div>
                 ) : (
                     isStockPricePreview ? (
                         <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -430,8 +437,9 @@ function ProductSelectorModal({
                                                                 <td style={{ padding: '7px' }}>{item.preview_image ? <img src={item.preview_image} alt="" style={{ width: '42px', height: '42px', objectFit: 'cover' }} /> : '-'}</td>
                                                                 <td style={{ padding: '7px', fontWeight: 600 }}>{item.sku || <span style={{ color: 'red' }}>SKU Eksik</span>}</td>
                                                                 <td style={{ padding: '7px' }}>
-                                                                    <div>{item.name || '-'}{renderImportAction(item)}</div>
-                                                                    {item.preview_warning && (!isProductPublishPreview || !isPublishReady(item)) && <div style={{ color: '#b45309', fontSize: '12px' }}>{item.preview_warning}</div>}
+                                                                   <div>{item.name || '-'}{renderImportAction(item)}</div>
+                                                                    {isProductPublishPreview && renderPublishAction(item)}
+                                                                   {item.preview_warning && (!isProductPublishPreview || !isPublishReady(item)) && <div style={{ color: '#b45309', fontSize: '12px' }}>{item.preview_warning}</div>}
                                                                     {isProductPublishPreview && Array.isArray(item.missing_fields) && item.missing_fields.filter(field => !['variation_attribute', 'variation_target_attribute_id'].includes(field.key) && !isVariationFieldResolved(item, field)).map(field => (
                                                                         <label key={field.key} style={{ display: 'block', marginTop: '6px', fontSize: '12px' }}>
                                                                             {field.label}
@@ -479,7 +487,8 @@ function ProductSelectorModal({
                                         {visibleItems.length === 0 ? (
                                             <tr><td colSpan={isProductPublishPreview ? 7 : (isProductImportPreview && productTab === 'variable' ? 7 : 6)} style={{ padding: '20px', textAlign: 'center' }}>Urun bulunamadi.</td></tr>
                                         ) : visibleItems.map((item, i) => (
-                                            <tr key={itemKey(item) || i} style={{ borderBottom: '1px solid #eee' }}>
+                                            <React.Fragment key={itemKey(item) || i}>
+                                            <tr style={{ borderBottom: '1px solid #eee' }}>
                                                 <td style={{ padding: '8px' }}>
                                                     <input
                                                         type="checkbox"
@@ -487,6 +496,11 @@ function ProductSelectorModal({
                                                         onChange={() => handleToggle(itemKey(item))}
                                                         disabled={!itemKey(item) || (isProductPublishPreview ? !isPublishReady(item) : item.can_import === false)}
                                                     />
+                                                    {isProductPublishPreview && item.catalog_comparison && (
+                                                        <span style={{ cursor: 'pointer', fontSize: '14px', marginLeft: '4px', color: '#667eea', userSelect: 'none', verticalAlign: 'middle' }}
+                                                            onClick={() => { const row = document.getElementById('publish-expand-' + itemKey(item)); if (row) row.style.display = row.style.display === 'none' ? '' : 'none'; }}
+                                                            >&#9654;</span>
+                                                    )}
                                                 </td>
                                                 <td style={{ padding: '8px' }}>
                                                     {item.preview_image ? (
@@ -497,8 +511,9 @@ function ProductSelectorModal({
                                                 </td>
                                                 <td style={{ padding: '8px' }}>{item.sku || <span style={{ color: 'red' }}>SKU Eksik</span>}</td>
                                                 <td style={{ padding: '8px' }}>
-                                                    <div>{item.name}{renderImportAction(item)}</div>
-                                                    {item.row_type === 'variation' && (
+                                                   <div>{item.name}{renderImportAction(item)}</div>
+                                                    {isProductPublishPreview && renderPublishAction(item)}
+                                                   {item.row_type === 'variation' && (
                                                         <small style={{ color: '#5b21b6' }}>Variation · Parent: {item.variation_parent_key}</small>
                                                     )}
                                                     {item.preview_warning && (
@@ -552,6 +567,31 @@ function ProductSelectorModal({
                                                 </td>
                                                 <td style={{ padding: '8px' }}>{item.stock_quantity}</td>
                                             </tr>
+                                            {isProductPublishPreview && item.catalog_comparison && (
+                                                <tr id={'publish-expand-' + itemKey(item)} style={{ display: 'none', background: '#f8fafc' }}>
+                                                    <td colSpan={7} style={{ padding: '10px 16px', borderBottom: '1px solid #eee' }}>
+                                                        <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+                                                            <thead><tr>
+                                                                <th style={{ padding: '4px 8px', borderBottom: '1px solid #dfe3e8', textAlign: 'left', color: '#667085' }}></th>
+                                                                <th style={{ padding: '4px 8px', borderBottom: '1px solid #dfe3e8', textAlign: 'left', color: '#667085' }}>Pazar Yeri (Once)</th>
+                                                                <th style={{ padding: '4px 8px', borderBottom: '1px solid #dfe3e8', textAlign: 'left', color: '#667085' }}>WooCommerce (Sonra)</th>
+                                                            </tr></thead>
+                                                            <tbody>
+                                                                {[['Fiyat', 'price_before', 'price_after', 'price_changed'], ['Indirimli Fiyat', 'sale_price_before', 'sale_price_after', null], ['Stok', 'stock_before', 'stock_after', 'stock_changed']].map(([label, beforeKey, afterKey, changedKey]) => (
+                                                                    <tr key={label}>
+                                                                        <td style={{ padding: '4px 8px', fontWeight: 600 }}>{label}</td>
+                                                                        <td style={{ padding: '4px 8px', color: '#475467' }}>{item.catalog_comparison[beforeKey]}</td>
+                                                                        <td style={{ padding: '4px 8px', color: changedKey && item.catalog_comparison[changedKey] ? '#067647' : '#475569', fontWeight: (changedKey && item.catalog_comparison[changedKey]) ? 600 : 400 }}>
+                                                                            {item.catalog_comparison[afterKey]}
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                            </React.Fragment>
                                         ))}
                                     </tbody>
                                 </table>
@@ -592,11 +632,19 @@ function ProductSelectorModal({
                     )
                 )}
 
-                <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                    <button className="btn" style={{ background: '#eee', color: '#333' }} onClick={onClose}>Iptal</button>
-                    <button className="btn" onClick={handleStartSync} disabled={loading}>
-                        {submitText} {selectedSkus.size > 0 ? `(${selectedSkus.size})` : '(Tum urunler)'}
-                    </button>
+                <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                    {isProductPublishPreview && (
+                        <span style={{ color: '#475467', fontSize: '13px', fontWeight: 500 }}>
+                            {items.filter(item => item.upload_action === 'upload').length} yüklenecek · {items.filter(item => item.upload_action === 'update').length} güncellenecek
+                            {items.some(item => item.upload_action === 'unchanged') ? ` · ${items.filter(item => item.upload_action === 'unchanged').length} değişiklik yok` : ''}
+                        </span>
+                    )}
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <button className="btn" style={{ background: '#eee', color: '#333' }} onClick={onClose}>Iptal</button>
+                        <button className="btn" onClick={handleStartSync} disabled={loading}>
+                            {submitText} {selectedSkus.size > 0 ? `(${selectedSkus.size})` : '(Tum urunler)'}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

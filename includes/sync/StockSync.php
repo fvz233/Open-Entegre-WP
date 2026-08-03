@@ -812,7 +812,7 @@ class StockSync
         );
     }
 
-    private static function fetch_marketplace_products_by_sku($supplier_id, $supplier, $adapter, $log_warnings = true)
+    public static function fetch_marketplace_products_by_sku($supplier_id, $supplier, $adapter, $log_warnings = true)
     {
         $marketplace_key = '';
         if (is_object($supplier) && !empty($supplier->marketplace_key)) {
@@ -953,7 +953,7 @@ class StockSync
         return array_values(array_unique($keys));
     }
 
-    private static function normalize_sku_key($sku)
+    public static function normalize_sku_key($sku)
     {
         $normalized = trim((string) $sku);
         if ($normalized === '') {

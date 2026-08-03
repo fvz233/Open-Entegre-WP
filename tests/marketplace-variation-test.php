@@ -233,10 +233,10 @@ $GLOBALS['test_product'] = new CommissionVariationProduct();
 $direct_preview = $direct_preview_method->invoke(null, 1, (object) array('marketplace_key' => 'trendyol'), new StockPreviewFixture(), array(), array(), true, true, false);
 check(count($direct_preview['items']) === 1, 'Price preview did not use the marketplace product list.');
 check($direct_preview['items'][0]['before_price'] === 110.0 && $direct_preview['items'][0]['before_discount_price'] === 90.0, 'Marketplace prices are missing from price preview.');
-check($direct_preview['items'][0]['after_price'] === 142.01 && $direct_preview['items'][0]['after_discount_price'] === 117.16, 'Product commission is missing from Trendyol price preview.');
+check($direct_preview['items'][0]['after_price'] === 142.0 && $direct_preview['items'][0]['after_discount_price'] === 117.0, 'Product commission is missing from Trendyol price preview.');
 
 $commission_payload = $trendyol->build_price_inventory_item_from_product(new CommissionVariationProduct(), false, true);
-check($commission_payload['listPrice'] === 142.01 && $commission_payload['salePrice'] === 117.16, 'Parent product commission is missing from Trendyol variation payload.');
+check($commission_payload['listPrice'] === 142.0 && $commission_payload['salePrice'] === 117.0, 'Parent product commission is missing from Trendyol variation payload.');
 
 $discount_method = new ReflectionMethod(StockSync::class, 'get_product_discount_price');
 $discount_method->setAccessible(true);

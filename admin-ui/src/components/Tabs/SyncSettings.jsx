@@ -194,10 +194,15 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
         setFeedback(null);
         setLoading(true);
         try {
-            const res = await api.publishProducts(supplier.id, selectedItems, productOverrides);
-            const result = res.data?.result || {};
-            const batchId = result.response?.batchRequestId || result.response?.trackingId || result.response?.id || '-';
-            setFeedback({ type: 'success', message: `${result.sent || 0} ürün ${supplier.name || supplier.marketplace_key}'a gönderildi. Batch ID: ${batchId}` });
+           const res = await api.publishProducts(supplier.id, selectedItems, productOverrides);
+           const result = res.data?.result || {};
+           const batchId = result.response?.batchRequestId || result.response?.trackingId || result.response?.id || '-';
+            const uploaded = result.uploaded || 0;
+            const updated = result.updated || 0;
+            const unchanged = result.unchanged || 0;
+            const detail = (uploaded && updated) ? ` (${uploaded} yeni, ${updated} güncelleme)` : (uploaded ? ' (yeni)' : (updated ? ' (güncelleme)' : ''));
+            const extra = unchanged ? `, ${unchanged} değişiklik yok (atlandı)` : '';
+            setFeedback({ type: 'success', message: `${result.sent || 0} ürün ${supplier.name || supplier.marketplace_key}'a gönderildi${detail}${extra}. Batch ID: ${batchId}` });
         } catch (e) {
             setFeedback({ type: 'error', message: e.response?.data?.message || e.message || 'Ürün gönderimi başarısız.' });
         }

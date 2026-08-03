@@ -35,6 +35,7 @@ require_once dirname(__DIR__) . '/includes/marketplaces/CiceksepetiMarketplace.p
 require_once dirname(__DIR__) . '/includes/marketplaces/AmazonMarketplace.php';
 require_once dirname(__DIR__) . '/includes/marketplaces/PttAvmMarketplace.php';
 require_once dirname(__DIR__) . '/includes/marketplaces/HepsiburadaMarketplace.php';
+require_once dirname(__DIR__) . '/includes/sync/ProductPublisher.php';
 
 class MarketplacePublishProduct
 {
@@ -82,10 +83,10 @@ $n11 = (new MultiSync\Marketplaces\N11Marketplace())->build_product_item_from_pr
 ), array(
     'category_id' => '100', 'shipment_template' => 'Standart', 'vat_rate' => '20',
 ));
-check(!is_wp_error($n11) && $n11['stockCode'] === '8690000000001' && $n11['attributes'][0]['valueId'] === 99 && $n11['salePrice'] === 111.11, 'n11 product payload failed.');
+check(!is_wp_error($n11) && $n11['stockCode'] === '8690000000001' && $n11['attributes'][0]['valueId'] === 99 && $n11['salePrice'] === 111.0, 'n11 product payload failed.');
 check($n11['images'][0]['url'] === 'http://example.test/7.jpg', 'n11 HTTP image mapping failed.');
 $n11_commission = (new MultiSync\Marketplaces\N11Marketplace())->build_price_inventory_item_from_product($product, false, true, 10);
-check($n11_commission['listPrice'] === 133.33 && $n11_commission['salePrice'] === 111.11, 'Category commission was not applied to marketplace prices.');
+check($n11_commission['listPrice'] === 133.0 && $n11_commission['salePrice'] === 111.0, 'Category commission was not applied to marketplace prices.');
 
 $pazarama = (new MultiSync\Marketplaces\PazaramaMarketplace())->build_product_item_from_product($product, array(
     'commission_rate' => 10,
@@ -95,20 +96,20 @@ $pazarama = (new MultiSync\Marketplaces\PazaramaMarketplace())->build_product_it
 ), array(
     'category_id' => '429844d8-a148-40cd-ad25-aa4f200c7041', 'desi' => '1', 'vat_rate' => '20',
 ));
-check(!is_wp_error($pazarama) && $pazarama['attributes'][0]['attributeValueId'] === 'v1' && $pazarama['salePrice'] === 111.11, 'Pazarama product payload failed.');
+check(!is_wp_error($pazarama) && $pazarama['attributes'][0]['attributeValueId'] === 'v1' && $pazarama['salePrice'] === 111.0, 'Pazarama product payload failed.');
 check($pazarama['images'][0]['imageurl'] === 'http://example.test/7.jpg', 'Pazarama HTTP image mapping failed.');
 
 $cicek = (new MultiSync\Marketplaces\CiceksepetiMarketplace())->build_product_item_from_product($product, array('commission_rate' => 10), array('category_id' => '42', 'vat_rate' => '20'));
-check(!is_wp_error($cicek) && $cicek['mainProductCode'] === '8690000000001' && $cicek['categoryId'] === 42 && $cicek['salesPrice'] === 111.11, 'Ciceksepeti product payload failed.');
+check(!is_wp_error($cicek) && $cicek['mainProductCode'] === '8690000000001' && $cicek['categoryId'] === 42 && $cicek['salesPrice'] === 111.0, 'Ciceksepeti product payload failed.');
 check($cicek['images'][0]['url'] === 'http://example.test/7.jpg', 'Ciceksepeti HTTP image mapping failed.');
 
 $amazon = (new MultiSync\Marketplaces\AmazonMarketplace())->build_product_item_from_product($product, array('commission_rate' => 10), array('category_id' => 'PRODUCT', 'brand' => 'Demsu', 'barcode' => '8690000000001'));
 check(!is_wp_error($amazon) && $amazon['productType'] === 'PRODUCT' && isset($amazon['attributes']['purchasable_offer']), 'Amazon listing payload failed.');
-check($amazon['attributes']['purchasable_offer'][0]['our_price'][0]['schedule'][0]['value_with_tax'] === 133.33, 'Amazon category commission failed.');
+check($amazon['attributes']['purchasable_offer'][0]['our_price'][0]['schedule'][0]['value_with_tax'] === 133.0, 'Amazon category commission failed.');
 check($amazon['attributes']['main_product_image_locator'][0]['media_location'] === 'http://example.test/7.jpg', 'Amazon HTTP image mapping failed.');
 
 $ptt = (new MultiSync\Marketplaces\PttAvmMarketplace())->build_product_item_from_product($product, array('commission_rate' => 10), array('category_id' => '55', 'vat_rate' => '20', 'desi' => '1'));
-check(!is_wp_error($ptt) && $ptt['barcode'] === '8690000000001' && $ptt['priceWithVat'] === 111.11, 'PTTAVM product payload failed.');
+check(!is_wp_error($ptt) && $ptt['barcode'] === '8690000000001' && $ptt['priceWithVat'] === 111.0, 'PTTAVM product payload failed.');
 
 $hepsiburada = new HepsiburadaFixture();
 $hepsiburada_mapping = array(
@@ -122,7 +123,7 @@ $hepsiburada_mapping = array(
 );
 $hb_item = $hepsiburada->build_product_item_from_product($product, $hepsiburada_mapping);
 check(!is_wp_error($hb_item) && $hb_item['attributes']['merchantSku'] === '8690000000001', 'Hepsiburada SKU mapping failed.');
-check($hb_item['attributes']['price'] === '111,11', 'Hepsiburada category commission failed.');
+check($hb_item['attributes']['price'] === '111,00', 'Hepsiburada category commission failed.');
 check($hb_item['attributes']['material'] === 'Çelik', 'Hepsiburada enum value mapping failed.');
 check($hb_item['attributes']['Image1'] === 'http://example.test/7.jpg', 'Hepsiburada HTTP image mapping failed.');
 
@@ -157,5 +158,22 @@ $hepsiburada->responses = array(
 );
 $hb_brands = $hepsiburada->fetch_product_brands($hb_supplier, 'dem', '123');
 check(count($hb_brands) === 1 && $hb_brands[0]['name'] === 'Demsu', 'Hepsiburada brand search failed.');
+
+$comparison_method = new ReflectionMethod(MultiSync\Sync\ProductPublisher::class, 'comparison_before_after');
+$comparison_method->setAccessible(true);
+$comparison = $comparison_method->invoke(
+    new MultiSync\Sync\ProductPublisher(),
+    $product,
+    array('regular_price' => 110.0, 'sale_price' => 95.0, 'stock_quantity' => 4),
+    array('listPrice' => 110.0, 'salePrice' => 95.0, 'quantity' => 4)
+);
+check($comparison['price_changed'] === false && $comparison['stock_changed'] === false && $comparison['price_after'] === '110.00', 'Published product comparison failed for unchanged item.');
+$comparison_changed = $comparison_method->invoke(
+    new MultiSync\Sync\ProductPublisher(),
+    $product,
+    array('regular_price' => 130.0, 'sale_price' => '', 'stock_quantity' => 9),
+    array('listPrice' => 110.0, 'salePrice' => 110.0, 'quantity' => 4)
+);
+check($comparison_changed['price_changed'] === true && $comparison_changed['stock_changed'] === true, 'Published product comparison failed for changed item.');
 
 echo "marketplace-product-publish-test: ok\n";

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Open Entegre
  * Description: WooCommerce icin birden fazla dis pazar yerine baglanabilen esnek senkronizasyon eklentisi.
- * Version: 1.0.47
+ * Version: 1.0.48
  * Author: Fevzi Demirtaş
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -1289,6 +1289,9 @@ add_action('woocommerce_product_quick_edit_save', 'multi_sync_save_product_commi
 function multi_sync_save_product_commission_rates_quick_edit($product)
 {
     multi_sync_save_product_commission_rates($product);
+    if (isset($_POST['multi_sync_vat_rate']) && trim((string) wp_unslash($_POST['multi_sync_vat_rate'])) !== '') {
+        multi_sync_save_product_vat_rates($product);
+    }
     $product->save_meta_data();
 }
 
@@ -1296,6 +1299,7 @@ add_filter('manage_edit-product_columns', 'multi_sync_add_product_commission_col
 function multi_sync_add_product_commission_column($columns)
 {
     $columns['multi_sync_commissions'] = __('Commissions', 'multi-sync');
+    $columns['multi_sync_vat'] = __('KDV', 'multi-sync');
     return $columns;
 }
 
@@ -1319,6 +1323,18 @@ function multi_sync_render_product_commission_column($column, $post_id)
         . esc_attr(wp_json_encode($rates)) . '" hidden></span>';
 }
 
+add_action('manage_product_posts_custom_column', 'multi_sync_render_product_vat_column', 10, 2);
+function multi_sync_render_product_vat_column($column, $post_id)
+{
+    if ($column !== 'multi_sync_vat') {
+        return;
+    }
+    $rate = multi_sync_get_product_vat_rate(wc_get_product($post_id));
+    $label = in_array($rate, array('0', '1', '10', '20'), true) ? '%' . $rate : '&mdash;';
+    echo esc_html($label);
+    echo '<span class="multi-sync-vat-data" data-vat="' . esc_attr((string) $rate) . '" hidden></span>';
+}
+
 add_action('quick_edit_custom_box', 'multi_sync_render_product_commission_quick_edit', 10, 2);
 function multi_sync_render_product_commission_quick_edit($column, $post_type)
 {
@@ -1337,6 +1353,18 @@ function multi_sync_render_product_commission_quick_edit($column, $post_type)
                     </span>
                 </label>
             <?php endforeach; ?>
+            <label>
+                <span class="title">KDV oranı</span>
+                <span class="input-text-wrap">
+                    <select name="multi_sync_vat_rate">
+                        <option value=""><?php esc_html_e('No change', 'multi-sync'); ?></option>
+                        <option value="0">%0</option>
+                        <option value="1">%1</option>
+                        <option value="10">%10</option>
+                        <option value="20">%20</option>
+                    </select>
+                </span>
+            </label>
         </div>
     </fieldset>
     <?php
@@ -1364,6 +1392,8 @@ function multi_sync_product_commission_quick_edit_script()
                 Object.prototype.hasOwnProperty.call(rates, '<?php echo esc_js($key); ?>') ? rates['<?php echo esc_js($key); ?>'] : ''
             );
             <?php endforeach; ?>
+            const vat = $('#post-' + postId + ' .multi-sync-vat-data').attr('data-vat') || '';
+            row.find('[name="multi_sync_vat_rate"]').val(vat);
         };
     });
     </script>
