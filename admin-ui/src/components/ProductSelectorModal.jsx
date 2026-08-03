@@ -211,6 +211,12 @@ function ProductSelectorModal({
         );
     };
 
+    const renderImportAction = (item) => isProductImportPreview && item.can_import !== false && item.import_action && (
+        <small style={{ marginLeft: '7px', padding: '1px 5px', borderRadius: '8px', background: '#f1f5f9', color: '#64748b', fontSize: '10px', fontWeight: 500 }}>
+            {item.import_action === 'update' ? 'Güncellenecek' : 'Yeni'}
+        </small>
+    );
+
     const handleStartSync = () => {
         if (selectedSkus.size === 0) {
             if (!confirm(emptySelectionConfirm)) {
@@ -424,7 +430,7 @@ function ProductSelectorModal({
                                                                 <td style={{ padding: '7px' }}>{item.preview_image ? <img src={item.preview_image} alt="" style={{ width: '42px', height: '42px', objectFit: 'cover' }} /> : '-'}</td>
                                                                 <td style={{ padding: '7px', fontWeight: 600 }}>{item.sku || <span style={{ color: 'red' }}>SKU Eksik</span>}</td>
                                                                 <td style={{ padding: '7px' }}>
-                                                                    <div>{item.name || '-'}</div>
+                                                                    <div>{item.name || '-'}{renderImportAction(item)}</div>
                                                                     {item.preview_warning && (!isProductPublishPreview || !isPublishReady(item)) && <div style={{ color: '#b45309', fontSize: '12px' }}>{item.preview_warning}</div>}
                                                                     {isProductPublishPreview && Array.isArray(item.missing_fields) && item.missing_fields.filter(field => !['variation_attribute', 'variation_target_attribute_id'].includes(field.key) && !isVariationFieldResolved(item, field)).map(field => (
                                                                         <label key={field.key} style={{ display: 'block', marginTop: '6px', fontSize: '12px' }}>
@@ -491,7 +497,7 @@ function ProductSelectorModal({
                                                 </td>
                                                 <td style={{ padding: '8px' }}>{item.sku || <span style={{ color: 'red' }}>SKU Eksik</span>}</td>
                                                 <td style={{ padding: '8px' }}>
-                                                    <div>{item.name}</div>
+                                                    <div>{item.name}{renderImportAction(item)}</div>
                                                     {item.row_type === 'variation' && (
                                                         <small style={{ color: '#5b21b6' }}>Variation · Parent: {item.variation_parent_key}</small>
                                                     )}

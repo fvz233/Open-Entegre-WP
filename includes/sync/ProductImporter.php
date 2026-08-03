@@ -173,10 +173,13 @@ class ProductImporter
                 if (!empty($item['variation_parent_key'])) {
                     $blocked_parents[$item['variation_parent_key']] = $match->get_error_message();
                 }
-            } elseif ($match && isset($item['row_type']) && $item['row_type'] === 'variation') {
-                $existing = wc_get_product($match);
-                if ($existing && !$existing->is_type('variation')) {
-                    $items[$index]['preview_warning'] = 'Existing Woo product will keep its ID and migrate to a variation.';
+            } else {
+                $items[$index]['import_action'] = $match ? 'update' : 'create';
+                if ($match && isset($item['row_type']) && $item['row_type'] === 'variation') {
+                    $existing = wc_get_product($match);
+                    if ($existing && !$existing->is_type('variation')) {
+                        $items[$index]['preview_warning'] = 'Existing Woo product will keep its ID and migrate to a variation.';
+                    }
                 }
             }
         }

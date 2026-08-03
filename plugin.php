@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Open Entegre
  * Description: WooCommerce icin birden fazla dis pazar yerine baglanabilen esnek senkronizasyon eklentisi.
- * Version: 1.0.42
+ * Version: 1.0.43
  * Author: Antigravity
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -100,6 +100,36 @@ if (is_readable($update_checker_file)) {
     if (defined('MULTI_SYNC_GITHUB_TOKEN') && MULTI_SYNC_GITHUB_TOKEN !== '') {
         $myUpdateChecker->setAuthentication(MULTI_SYNC_GITHUB_TOKEN);
     }
+}
+
+add_action('admin_post_multi_sync_update', 'multi_sync_handle_update');
+function multi_sync_handle_update()
+{
+    if (!current_user_can('update_plugins')) {
+        wp_die('Bu işlem için yetkiniz yok.', '', array('response' => 403));
+    }
+
+    check_admin_referer('multi_sync_update');
+    global $myUpdateChecker;
+
+    $panel_url = admin_url('admin.php?page=multi-sync');
+    if (!isset($myUpdateChecker)) {
+        wp_safe_redirect(add_query_arg('multi_sync_update', 'error', $panel_url));
+        exit;
+    }
+
+    $update = $myUpdateChecker->checkForUpdates();
+    if ($update === null) {
+        $status = empty($myUpdateChecker->getLastRequestApiErrors()) ? 'current' : 'error';
+        wp_safe_redirect(add_query_arg('multi_sync_update', $status, $panel_url));
+        exit;
+    }
+
+    wp_safe_redirect(wp_nonce_url(
+        admin_url('update.php?action=upgrade-plugin&plugin=' . rawurlencode(plugin_basename(__FILE__))),
+        'upgrade-plugin_' . plugin_basename(__FILE__)
+    ));
+    exit;
 }
 
 /**
@@ -566,10 +596,10 @@ function multi_sync_enqueue_scripts($hook)
         'nonce' => wp_create_nonce('wp_rest'),
         'pluginUrl' => esc_url_raw(MULTI_SYNC_PLUGIN_URL),
         'iconsVersion' => multi_sync_get_icon_cache_version(),
-        'updateUrl' => wp_nonce_url(
-            admin_url('update.php?action=upgrade-plugin&plugin=' . rawurlencode(plugin_basename(__FILE__))),
-            'upgrade-plugin_' . plugin_basename(__FILE__)
-        ),
+        'updateUrl' => wp_nonce_url(admin_url('admin-post.php?action=multi_sync_update'), 'multi_sync_update'),
+        'updateStatus' => isset($_GET['multi_sync_update'])
+            ? sanitize_key(wp_unslash((string) $_GET['multi_sync_update']))
+            : '',
     ));
 }
 

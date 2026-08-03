@@ -243,6 +243,7 @@ $importer_source = file_get_contents(dirname(__DIR__) . '/includes/sync/ProductI
 $order_source = file_get_contents(dirname(__DIR__) . '/includes/sync/OrderImporter.php');
 $job_source = file_get_contents(dirname(__DIR__) . '/includes/models/SyncJob.php');
 check(strpos($importer_source, 'multi_sync_product_ownership_conflict') === false && strpos($importer_source, "'post_type' => 'product_variation'") !== false, 'Global SKU adoption or safe variation migration is missing.');
+check(strpos($importer_source, "\$items[\$index]['import_action'] = \$match ? 'update' : 'create'") !== false, 'Import preview create/update action is missing.');
 check(strpos($order_source, '_multi_sync_external_barcode') !== false && strpos($order_source, '_multi_sync_supplier_id') !== false, 'Supplier-scoped external order line resolution is missing.');
 check(strpos($job_source, 'recover_stale_running') !== false && strpos($job_source, '30 * MINUTE_IN_SECONDS') !== false, 'Stale job recovery is missing.');
 $updater_file = dirname(__DIR__) . '/includes/plugin-update-checker/plugin-update-checker.php';

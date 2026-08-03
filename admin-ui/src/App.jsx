@@ -15,6 +15,9 @@ const iconsVersion = (typeof window !== 'undefined' && window.multiSyncSettings 
 const updateUrl = (typeof window !== 'undefined' && window.multiSyncSettings && window.multiSyncSettings.updateUrl)
     ? String(window.multiSyncSettings.updateUrl)
     : '';
+const updateStatus = (typeof window !== 'undefined' && window.multiSyncSettings && window.multiSyncSettings.updateStatus)
+    ? String(window.multiSyncSettings.updateStatus)
+    : '';
 
 const marketplaceVisuals = {
     trendyol: { short: 'TY', color: '#f27a1a', icon: 'trendyol.png' },
@@ -121,6 +124,8 @@ function App() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <h1>Open Entegre</h1>
                 {updateUrl && <a className="button button-small" href={updateUrl}>Güncelle</a>}
+                {updateStatus === 'current' && <span style={{ color: '#50705a' }}>Sürüm güncel.</span>}
+                {updateStatus === 'error' && <span style={{ color: '#b32d2e' }}>Güncelleme kontrol edilemedi.</span>}
             </div>
 
             <div className="marketplace-selector">
