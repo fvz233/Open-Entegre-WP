@@ -404,9 +404,9 @@ function ProductSelectorModal({
                                                             {isProductPublishPreview && <option value="">Seçin</option>}
                                                             {(first.variation_attribute_options || []).map(option => <option key={option} value={option}>{(first.variation_attribute_labels || {})[option] || option}</option>)}
                                                         </select>
-                                                        {isProductPublishPreview && (first.variation_target_options || []).length > 0 && <>
+                                                        {isProductPublishPreview && supplier?.marketplace_key === 'trendyol' && <>
                                                             <span style={{ color: '#667085' }}>→</span>
-                                                            <label style={{ fontSize: '12px', fontWeight: 600 }}>{(supplier?.name || 'Pazar yeri')} hedef niteliği</label>
+                                                            <label style={{ fontSize: '12px', fontWeight: 600 }}>Trendyol hedef niteliği</label>
                                                             <select value={variationTargetChoices[parentKey] || ''} onChange={e => setVariationTarget(parentKey, children, e.target.value)}>
                                                                 <option value="">API niteliğini seçin</option>
                                                                 {(first.variation_target_options || []).map(option => <option key={option.id} value={option.id}>{option.name}</option>)}

@@ -176,7 +176,7 @@ class JobWorker
             ? array_values(array_filter(array_map('strval', $result['batch_request_ids'])))
             : array();
         $supplier = (new Supplier())->get($supplier_id);
-        $async_marketplace = $supplier && in_array(sanitize_key((string) $supplier->marketplace_key), array('trendyol', 'n11', 'ciceksepeti', 'pttavm'), true);
+        $async_marketplace = $supplier && in_array(sanitize_key((string) $supplier->marketplace_key), array('trendyol', 'n11', 'ciceksepeti'), true);
         if (!empty($batch_ids) && $async_marketplace) {
             $payload['remote_batch_ids'] = $batch_ids;
             $payload['remote_attempts'] = 0;
@@ -290,10 +290,10 @@ class JobWorker
             }
         };
         $walk($result);
-        if ($failed || preg_grep('/failed|failure|error|unsuccess|rejected|cancelled|canceled|cancel/', $states)) {
+        if ($failed || preg_grep('/failed|failure|error|unsuccess|rejected/', $states)) {
             return 'failed';
         }
-        if (preg_grep('/pending|processing|progress|created|queued|running|waiting|in_progress|inprogress/', $states)) {
+        if (preg_grep('/pending|processing|progress|created|queued|running/', $states)) {
             return 'pending';
         }
         return preg_grep('/completed|complete|success|finished|done/', $states) ? 'completed' : 'pending';
