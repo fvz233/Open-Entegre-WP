@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: Open Entegre WP
+ * Plugin Name: Open Entegre
  * Description: WooCommerce icin birden fazla dis pazar yerine baglanabilen esnek senkronizasyon eklentisi.
- * Version: 1.0.40
+ * Version: 1.0.41
  * Author: Antigravity
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -60,7 +60,7 @@ function multi_sync_redact_debug_value($value, $key = '')
     return $value;
 }
 
-define('MULTI_SYNC_VERSION', '1.0.40');
+define('MULTI_SYNC_VERSION', '1.0.41');
 define('MULTI_SYNC_SCHEMA_VERSION', '20260802-2');
 define('MULTI_SYNC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MULTI_SYNC_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -515,8 +515,8 @@ add_action('admin_menu', 'multi_sync_admin_menu');
 function multi_sync_admin_menu()
 {
     add_menu_page(
-        'Coklu Senkron',
-        'Coklu Senkron',
+        'Open Entegre',
+        'Open Entegre',
         'manage_options',
         'multi-sync',
         'multi_sync_render_admin_page',
@@ -566,6 +566,10 @@ function multi_sync_enqueue_scripts($hook)
         'nonce' => wp_create_nonce('wp_rest'),
         'pluginUrl' => esc_url_raw(MULTI_SYNC_PLUGIN_URL),
         'iconsVersion' => multi_sync_get_icon_cache_version(),
+        'updateUrl' => wp_nonce_url(
+            admin_url('update.php?action=upgrade-plugin&plugin=' . rawurlencode(plugin_basename(__FILE__))),
+            'upgrade-plugin_' . plugin_basename(__FILE__)
+        ),
     ));
 }
 

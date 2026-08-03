@@ -12,6 +12,9 @@ const pluginUrl = (typeof window !== 'undefined' && window.multiSyncSettings && 
 const iconsVersion = (typeof window !== 'undefined' && window.multiSyncSettings && window.multiSyncSettings.iconsVersion)
     ? String(window.multiSyncSettings.iconsVersion)
     : '';
+const updateUrl = (typeof window !== 'undefined' && window.multiSyncSettings && window.multiSyncSettings.updateUrl)
+    ? String(window.multiSyncSettings.updateUrl)
+    : '';
 
 const marketplaceVisuals = {
     trendyol: { short: 'TY', color: '#f27a1a', icon: 'trendyol.png' },
@@ -115,7 +118,10 @@ function App() {
 
     return (
         <div className="multi-sync-container">
-            <h1>Çoklu Kaynak Senkronizasyonu</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h1>Open Entegre</h1>
+                {updateUrl && <a className="button button-small" href={updateUrl}>Güncelle</a>}
+            </div>
 
             <div className="marketplace-selector">
                 <div className="marketplace-carousel" role="tablist" aria-label="Genel ve pazar yeri seçimi">
