@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Open Entegre
  * Description: WooCommerce icin birden fazla dis pazar yerine baglanabilen esnek senkronizasyon eklentisi.
- * Version: 1.0.44
+ * Version: 1.0.45
  * Author: Antigravity
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -60,7 +60,7 @@ function multi_sync_redact_debug_value($value, $key = '')
     return $value;
 }
 
-define('MULTI_SYNC_VERSION', '1.0.44');
+define('MULTI_SYNC_VERSION', '1.0.45');
 define('MULTI_SYNC_SCHEMA_VERSION', '20260802-2');
 define('MULTI_SYNC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MULTI_SYNC_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -125,10 +125,12 @@ function multi_sync_handle_update()
         exit;
     }
 
-    wp_safe_redirect(wp_nonce_url(
-        admin_url('update.php?action=upgrade-plugin&plugin=' . rawurlencode(plugin_basename(__FILE__))),
-        'upgrade-plugin_' . plugin_basename(__FILE__)
-    ));
+    $plugin_file = plugin_basename(__FILE__);
+    wp_safe_redirect(add_query_arg(array(
+        'action' => 'upgrade-plugin',
+        'plugin' => $plugin_file,
+        '_wpnonce' => wp_create_nonce('upgrade-plugin_' . $plugin_file),
+    ), admin_url('update.php')));
     exit;
 }
 
@@ -596,7 +598,10 @@ function multi_sync_enqueue_scripts($hook)
         'nonce' => wp_create_nonce('wp_rest'),
         'pluginUrl' => esc_url_raw(MULTI_SYNC_PLUGIN_URL),
         'iconsVersion' => multi_sync_get_icon_cache_version(),
-        'updateUrl' => wp_nonce_url(admin_url('admin-post.php?action=multi_sync_update'), 'multi_sync_update'),
+        'updateUrl' => add_query_arg(array(
+            'action' => 'multi_sync_update',
+            '_wpnonce' => wp_create_nonce('multi_sync_update'),
+        ), admin_url('admin-post.php')),
         'updateStatus' => isset($_GET['multi_sync_update'])
             ? sanitize_key(wp_unslash((string) $_GET['multi_sync_update']))
             : '',
