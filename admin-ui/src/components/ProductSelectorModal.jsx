@@ -14,6 +14,7 @@ function ProductSelectorModal({
 }) {
     const isStockPricePreview = previewType === 'stock_price';
     const isProductPublishPreview = previewType === 'product_publish';
+    const isProductImportPreview = !isStockPricePreview && !isProductPublishPreview;
     const itemKey = (item) => item.selection_key || item.sku;
     const [items, setItems] = useState([]);
     const [stokKodsuzItems, setStokKodsuzItems] = useState([]);
@@ -22,6 +23,9 @@ function ProductSelectorModal({
     const [filter, setFilter] = useState('');
     const [previewWarning, setPreviewWarning] = useState('');
     const [publishValues, setPublishValues] = useState({});
+    const [productTab, setProductTab] = useState('simple');
+    const [variationChoices, setVariationChoices] = useState({});
+    const [variationTargetChoices, setVariationTargetChoices] = useState({});
 
     useEffect(() => {
         fetchPreview();
@@ -50,11 +54,15 @@ function ProductSelectorModal({
                 }
             } else if (isProductPublishPreview) {
                 const res = await api.previewProductPublish(supplier.id);
-                setItems(res.data?.success && Array.isArray(res.data.items) ? res.data.items : []);
+                const previewItems = res.data?.success && Array.isArray(res.data.items) ? res.data.items : [];
+                setItems(previewItems);
                 setStokKodsuzItems([]);
                 setPreviewWarning('');
                 setSelectedSkus(new Set());
                 setPublishValues({});
+                setVariationChoices({});
+                setVariationTargetChoices({});
+                setProductTab('simple');
             } else {
                 const res = await api.previewSync(supplier.id);
                 if (res.data.success && Array.isArray(res.data.items)) {
@@ -62,6 +70,15 @@ function ProductSelectorModal({
                     setStokKodsuzItems(Array.isArray(res.data.stok_kodsuz) ? res.data.stok_kodsuz : []);
                     setPreviewWarning('');
                     setSelectedSkus(new Set());
+                    const choices = {};
+                    res.data.items.forEach(item => {
+                        const options = Array.isArray(item.variation_attribute_options) ? item.variation_attribute_options : [];
+                        if (item.variation_parent_key && options.length && !choices[item.variation_parent_key]) {
+                            choices[item.variation_parent_key] = options[0];
+                        }
+                    });
+                    setVariationChoices(choices);
+                    setProductTab('simple');
                 } else {
                     setItems([]);
                     setStokKodsuzItems([]);
@@ -91,7 +108,7 @@ function ProductSelectorModal({
 
     const handleSelectAll = (e) => {
         if (e.target.checked) {
-            const allSkus = filteredItems
+            const allSkus = visibleItems
                 .filter(i => itemKey(i) && i.can_push !== false && (isProductPublishPreview ? isPublishReady(i) : i.can_import !== false))
                 .map(itemKey);
             setSelectedSkus(new Set(allSkus));
@@ -107,9 +124,14 @@ function ProductSelectorModal({
 
     const getPublishValue = (item, field) => publishValues[itemKey(item)]?.[field.key] || '';
 
+    const isVariationFieldResolved = (item, field) => {
+        const values = publishValues[itemKey(item)] || {};
+        return values.variation_attribute && field.key === `attribute_${values.variation_target_attribute_id}`;
+    };
+
     const isPublishReady = (item) => {
         const fields = Array.isArray(item.missing_fields) ? item.missing_fields : [];
-        return item.can_import !== false || (fields.length > 0 && fields.every(field => getPublishValue(item, field) !== ''));
+        return item.can_import !== false || (fields.length > 0 && fields.every(field => getPublishValue(item, field) !== '' || isVariationFieldResolved(item, field)));
     };
 
     const filteredItems = items.filter(item => {
@@ -127,6 +149,17 @@ function ProductSelectorModal({
         return (item.name && item.name.toLowerCase().includes(search)) ||
             (item.merchant_sku && item.merchant_sku.toLowerCase().includes(search));
     });
+
+    const simpleItems = filteredItems.filter(item => item.row_type !== 'variation');
+    const variableItems = filteredItems.filter(item => item.row_type === 'variation');
+    const variableGroups = Object.entries(variableItems.reduce((groups, item) => {
+        (groups[item.variation_parent_key] ||= []).push(item);
+        return groups;
+    }, {}));
+    const variableGroupCount = variableGroups.length;
+    const visibleItems = (isProductImportPreview || isProductPublishPreview)
+        ? (productTab === 'variable' ? variableItems : simpleItems)
+        : filteredItems;
 
     const formatValue = (value, type = 'text') => {
         if (value === null || value === undefined || value === '') {
@@ -183,11 +216,38 @@ function ProductSelectorModal({
             if (!confirm(emptySelectionConfirm)) {
                 return;
             }
-            onSync([], isProductPublishPreview ? publishValues : undefined); // Empty array means all
+            onSync([], isProductPublishPreview ? publishValues : (isProductImportPreview ? variationChoices : undefined)); // Empty array means all
         } else {
-            onSync(Array.from(selectedSkus), isProductPublishPreview ? publishValues : undefined);
+            onSync(Array.from(selectedSkus), isProductPublishPreview ? publishValues : (isProductImportPreview ? variationChoices : undefined));
         }
         onClose();
+    };
+
+    const toggleVariationGroup = (children, checked) => {
+        const next = new Set(selectedSkus);
+        children.forEach(item => {
+            const key = itemKey(item);
+            if (key && (isProductPublishPreview ? isPublishReady(item) : item.can_import !== false)) checked ? next.add(key) : next.delete(key);
+        });
+        setSelectedSkus(next);
+    };
+
+    const setVariationField = (parentKey, children, value) => {
+        setVariationChoices(current => ({ ...current, [parentKey]: value }));
+        if (isProductPublishPreview) {
+            setPublishValues(current => children.reduce((next, item) => ({
+                ...next,
+                [itemKey(item)]: { ...(next[itemKey(item)] || {}), variation_attribute: value },
+            }), { ...current }));
+        }
+    };
+
+    const setVariationTarget = (parentKey, children, value) => {
+        setVariationTargetChoices(current => ({ ...current, [parentKey]: value }));
+        setPublishValues(current => children.reduce((next, item) => ({
+            ...next,
+            [itemKey(item)]: { ...(next[itemKey(item)] || {}), variation_target_attribute_id: value },
+        }), { ...current }));
     };
 
     return (
@@ -229,6 +289,17 @@ function ProductSelectorModal({
                 {previewWarning && (
                     <div style={{ marginBottom: '10px', padding: '8px 10px', background: '#fff8e8', border: '1px solid #f0d79b', borderRadius: '4px', color: '#7a5b00' }}>
                         {previewWarning}
+                    </div>
+                )}
+
+                {(isProductImportPreview || isProductPublishPreview) && !loading && (
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }} role="tablist" aria-label="Urun tipi">
+                        <button type="button" className="btn" onClick={() => setProductTab('simple')} style={{ background: productTab === 'simple' ? '#2271b1' : '#eef2f6', color: productTab === 'simple' ? 'white' : '#333' }}>
+                            Basit Urunler ({simpleItems.length})
+                        </button>
+                        <button type="button" className="btn" onClick={() => setProductTab('variable')} style={{ background: productTab === 'variable' ? '#5b21b6' : '#eef2f6', color: productTab === 'variable' ? 'white' : '#333' }}>
+                            Varyasyonlu Urunler ({variableGroupCount})
+                        </button>
                     </div>
                 )}
 
@@ -299,9 +370,89 @@ function ProductSelectorModal({
                         </div>
                     ) : (
                         <div style={{ flex: 1, overflowY: 'auto' }}>
-                            <div style={{ border: '1px solid #eee', marginBottom: '12px' }}>
+                            {(isProductImportPreview || isProductPublishPreview) && productTab === 'variable' ? (
+                                <div style={{ marginBottom: '12px' }}>
+                                    <div style={{ marginBottom: '8px', fontWeight: 600 }}>
+                                        Varyasyonlu Urunler ({variableGroupCount} urun / {visibleItems.length} varyasyon)
+                                    </div>
+                                    {variableGroups.length === 0 ? (
+                                        <div style={{ padding: '20px', textAlign: 'center', border: '1px solid #e5e7eb', borderRadius: '6px' }}>Urun bulunamadi.</div>
+                                    ) : variableGroups.map(([parentKey, children]) => {
+                                        const selectable = children.filter(item => itemKey(item) && (isProductPublishPreview ? isPublishReady(item) : item.can_import !== false));
+                                        const allSelected = selectable.length > 0 && selectable.every(item => selectedSkus.has(itemKey(item)));
+                                        const first = children[0];
+                                        return (
+                                            <details key={parentKey} style={{ marginBottom: '8px', border: '1px solid #dfe3e8', borderRadius: '7px', background: '#f8fafc', overflow: 'hidden' }}>
+                                                <summary style={{ padding: '12px', cursor: 'pointer', fontWeight: 600, color: '#1f2937' }}>
+                                                    <span style={{ marginLeft: '6px' }}>{parentKey}</span>
+                                                    {first.variation_parent_name && <span style={{ marginLeft: '8px', color: '#475467', fontWeight: 400 }}>— {first.variation_parent_name}</span>}
+                                                    <span style={{ marginLeft: '8px', color: '#667085', fontSize: '12px', fontWeight: 400 }}>{children.length} varyasyon</span>
+                                                </summary>
+                                                <div style={{ padding: '0 12px 12px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 10px', background: '#eef2f6', borderRadius: '5px', marginBottom: '8px' }}>
+                                                        <label style={{ fontSize: '12px', fontWeight: 600 }}>{isProductPublishPreview ? 'WooCommerce kaynak alanı' : 'Varyasyon özelliği'}</label>
+                                                        <select
+                                                            value={variationChoices[parentKey] || ''}
+                                                            onChange={e => setVariationField(parentKey, children, e.target.value)}
+                                                        >
+                                                            {isProductPublishPreview && <option value="">Seçin</option>}
+                                                            {(first.variation_attribute_options || []).map(option => <option key={option} value={option}>{(first.variation_attribute_labels || {})[option] || option}</option>)}
+                                                        </select>
+                                                        {isProductPublishPreview && supplier?.marketplace_key === 'trendyol' && <>
+                                                            <span style={{ color: '#667085' }}>→</span>
+                                                            <label style={{ fontSize: '12px', fontWeight: 600 }}>Trendyol hedef niteliği</label>
+                                                            <select value={variationTargetChoices[parentKey] || ''} onChange={e => setVariationTarget(parentKey, children, e.target.value)}>
+                                                                <option value="">API niteliğini seçin</option>
+                                                                {(first.variation_target_options || []).map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+                                                            </select>
+                                                        </>}
+                                                    </div>
+                                                    <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff' }}>
+                                                        <thead><tr>
+                                                            <th style={{ padding: '7px', borderBottom: '1px solid #e5e7eb' }}><input type="checkbox" checked={allSelected} onChange={e => toggleVariationGroup(children, e.target.checked)} /></th>
+                                                            <th style={{ padding: '7px', borderBottom: '1px solid #e5e7eb' }}>Görsel</th>
+                                                            <th style={{ padding: '7px', borderBottom: '1px solid #e5e7eb' }}>Stok Kodu</th>
+                                                            <th style={{ padding: '7px', borderBottom: '1px solid #e5e7eb' }}>Ad</th>
+                                                            <th style={{ padding: '7px', borderBottom: '1px solid #e5e7eb' }}>Değer</th>
+                                                            {isProductPublishPreview && <th style={{ padding: '7px', borderBottom: '1px solid #e5e7eb' }}>Kategori Komisyonu</th>}
+                                                            <th style={{ padding: '7px', borderBottom: '1px solid #e5e7eb' }}>Fiyat</th>
+                                                            <th style={{ padding: '7px', borderBottom: '1px solid #e5e7eb' }}>Stok</th>
+                                                        </tr></thead>
+                                                        <tbody>{children.map((item, i) => (
+                                                            <tr key={itemKey(item) || i} style={{ borderBottom: '1px solid #eef0f2' }}>
+                                                                <td style={{ padding: '7px' }}><input type="checkbox" checked={selectedSkus.has(itemKey(item))} onChange={() => handleToggle(itemKey(item))} disabled={!itemKey(item) || (isProductPublishPreview ? !isPublishReady(item) : item.can_import === false)} /></td>
+                                                                <td style={{ padding: '7px' }}>{item.preview_image ? <img src={item.preview_image} alt="" style={{ width: '42px', height: '42px', objectFit: 'cover' }} /> : '-'}</td>
+                                                                <td style={{ padding: '7px', fontWeight: 600 }}>{item.sku || <span style={{ color: 'red' }}>SKU Eksik</span>}</td>
+                                                                <td style={{ padding: '7px' }}>
+                                                                    <div>{item.name || '-'}</div>
+                                                                    {item.preview_warning && (!isProductPublishPreview || !isPublishReady(item)) && <div style={{ color: '#b45309', fontSize: '12px' }}>{item.preview_warning}</div>}
+                                                                    {isProductPublishPreview && Array.isArray(item.missing_fields) && item.missing_fields.filter(field => !['variation_attribute', 'variation_target_attribute_id'].includes(field.key) && !isVariationFieldResolved(item, field)).map(field => (
+                                                                        <label key={field.key} style={{ display: 'block', marginTop: '6px', fontSize: '12px' }}>
+                                                                            {field.label}
+                                                                            {field.type === 'select' ? (
+                                                                                <select value={getPublishValue(item, field)} onChange={e => updatePublishValue(item, field.key, e.target.value)} style={{ marginLeft: '6px', maxWidth: '240px' }}>
+                                                                                    <option value="">Seçin</option>
+                                                                                    {(field.options || []).map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+                                                                                </select>
+                                                                            ) : <input type={field.type || 'text'} value={getPublishValue(item, field)} placeholder={field.suggested_value || ''} onChange={e => updatePublishValue(item, field.key, e.target.value)} style={{ marginLeft: '6px', maxWidth: '240px' }} />}
+                                                                        </label>
+                                                                    ))}
+                                                                </td>
+                                                                <td style={{ padding: '7px', color: '#5b21b6' }}>{isProductImportPreview ? ((item.variation_attributes || {})[variationChoices[parentKey]] || '-') : (Object.values(item.variation_attributes || {}).join(', ') || '-')}</td>
+                                                                {isProductPublishPreview && <td style={{ padding: '7px' }}>{item.category_commission_rate ? `%${item.category_commission_rate}` : '-'}</td>}
+                                                                <td style={{ padding: '7px' }}>{item.regular_price}{item.sale_price ? ` / ${item.sale_price}` : ''}</td>
+                                                                <td style={{ padding: '7px' }}>{item.stock_quantity}</td>
+                                                            </tr>
+                                                        ))}</tbody>
+                                                    </table>
+                                                </div>
+                                            </details>
+                                        );
+                                    })}
+                                </div>
+                            ) : <div style={{ border: '1px solid #eee', marginBottom: '12px' }}>
                                 <div style={{ padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>
-                                    {isProductPublishPreview ? 'Gonderilebilir WooCommerce Urunleri' : 'Import Edilebilir Urunler'} ({filteredItems.length})
+                                    {isProductPublishPreview ? `Gonderilebilir WooCommerce Urunleri (${visibleItems.length})` : (productTab === 'variable' ? `Varyasyonlu Urunler (${variableGroupCount} urun / ${visibleItems.length} varyasyon)` : `Basit Urunler (${visibleItems.length})`)}
                                 </div>
                                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                     <thead style={{ position: 'sticky', top: 0, background: 'white' }}>
@@ -312,15 +463,16 @@ function ProductSelectorModal({
                                             <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Gorsel</th>
                                             <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>SKU</th>
                                             <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Ad</th>
+                                            {isProductImportPreview && productTab === 'variable' && <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Varyasyon Ozelligi</th>}
                                             {isProductPublishPreview && <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Kategori Komisyonu</th>}
                                             <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Fiyat</th>
                                             <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Stok</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {filteredItems.length === 0 ? (
-                                            <tr><td colSpan={isProductPublishPreview ? 7 : 6} style={{ padding: '20px', textAlign: 'center' }}>Urun bulunamadi.</td></tr>
-                                        ) : filteredItems.map((item, i) => (
+                                        {visibleItems.length === 0 ? (
+                                            <tr><td colSpan={isProductPublishPreview ? 7 : (isProductImportPreview && productTab === 'variable' ? 7 : 6)} style={{ padding: '20px', textAlign: 'center' }}>Urun bulunamadi.</td></tr>
+                                        ) : visibleItems.map((item, i) => (
                                             <tr key={itemKey(item) || i} style={{ borderBottom: '1px solid #eee' }}>
                                                 <td style={{ padding: '8px' }}>
                                                     <input
@@ -371,6 +523,19 @@ function ProductSelectorModal({
                                                         </label>
                                                     ))}
                                                 </td>
+                                                {isProductImportPreview && productTab === 'variable' && (
+                                                    <td style={{ padding: '8px' }}>
+                                                        <select
+                                                            value={variationChoices[item.variation_parent_key] || ''}
+                                                            onChange={e => setVariationChoices(current => ({ ...current, [item.variation_parent_key]: e.target.value }))}
+                                                        >
+                                                            {(item.variation_attribute_options || []).map(option => <option key={option} value={option}>{option}</option>)}
+                                                        </select>
+                                                        <div style={{ marginTop: '4px', color: '#5b21b6', fontSize: '12px' }}>
+                                                            {(item.variation_attributes || {})[variationChoices[item.variation_parent_key]] || '-'}
+                                                        </div>
+                                                    </td>
+                                                )}
                                                 {isProductPublishPreview && (
                                                     <td style={{ padding: '8px' }}>
                                                         {item.category_commission_rate ? `%${item.category_commission_rate}` : '-'}
@@ -384,7 +549,7 @@ function ProductSelectorModal({
                                         ))}
                                     </tbody>
                                 </table>
-                            </div>
+                            </div>}
 
                             {!isProductPublishPreview && <div style={{ border: '1px solid #eee' }}>
                                 <div style={{ padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fff8e8', fontWeight: 600 }}>

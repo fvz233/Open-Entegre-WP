@@ -286,7 +286,10 @@ class TrendyolMarketplace extends BaseMarketplace
             'external_barcode' => $barcode,
             'external_product_id' => (string) $this->first_not_empty($item, array('variantId', 'id', 'productId', 'productCode', 'contentId'), ''),
             'parent_key' => (string) $this->first_not_empty($item, array('productMainId'), ''),
-            'variation_attributes' => $this->map_variation_attributes($this->first_not_empty($item, array('attributes'), array())),
+            'variation_attributes' => $this->map_variation_attributes(array_merge(
+                (array) $this->first_not_empty($item, array('_parent_attributes'), array()),
+                (array) $this->first_not_empty($item, array('attributes'), array())
+            )),
         );
     }
 
@@ -668,7 +671,7 @@ class TrendyolMarketplace extends BaseMarketplace
         $brand_id = (int) $override('brand_id', $category_mapping['brand_id'] ?? $meta('brand_id'));
         $category_id = (int) $override('category_id', $meta('category_id') ?: ($category_mapping['category_id'] ?? 0));
         $dimensional_weight = (float) $meta('dimensional_weight');
-        $vat_rate = $override('vat_rate', $this->get_product_vat_rate($product, $meta('vat_rate')));
+        $vat_rate = $override('vat_rate', $this->get_product_vat_rate($product));
         $attributes_raw = $meta('attributes');
         $attributes = $attributes_raw === ''
             ? (isset($category_mapping['attributes']) && is_array($category_mapping['attributes']) ? $category_mapping['attributes'] : array())
@@ -704,23 +707,37 @@ class TrendyolMarketplace extends BaseMarketplace
             ));
         }
 
-        $color = $this->get_variation_color($product, $parent);
+        $selected_variation_attribute = $override('variation_attribute', '');
+        $selected_variation_target = (int) $override('variation_target_attribute_id', '0');
+        $variation_value = $this->get_variation_value($product, $parent, $selected_variation_attribute);
+        if ($product->is_type('variation') && $selected_variation_attribute === '') {
+            $missing[] = array('key' => 'variation_attribute', 'label' => 'WooCommerce kaynak alanı', 'type' => 'select', 'options' => array_map(static function ($name) use ($parent) {
+                return array('id' => $name, 'name' => function_exists('wc_attribute_label') ? wc_attribute_label($name, $parent) : $name);
+            }, array_keys((array) $product->get_attributes())));
+        }
+        if ($product->is_type('variation') && $selected_variation_target <= 0) {
+            $missing[] = array('key' => 'variation_target_attribute_id', 'label' => 'Trendyol hedef niteliği', 'type' => 'select', 'options' => array_values(array_map(static function ($definition) {
+                return array('id' => (string) ($definition['id'] ?? ''), 'name' => (string) ($definition['name'] ?? ''));
+            }, array_filter((array) ($category_mapping['attribute_definitions'] ?? array()), static function ($definition) {
+                return is_array($definition) && !empty($definition['id']) && (!empty($definition['slicer']) || !empty($definition['varianter']));
+            }))));
+        }
         foreach ((array) ($category_mapping['attribute_definitions'] ?? array()) as $definition) {
             if (!is_array($definition) || empty($definition['id'])) {
                 continue;
             }
             $attribute_id = (int) $definition['id'];
             $input = $override('attribute_' . $attribute_id, '');
-            $is_color = $this->normalize_color((string) ($definition['name'] ?? '')) === 'renk';
-            if ($input === '' && $is_color && $color !== '') {
+            $is_variation_target = $selected_variation_target === $attribute_id;
+            if ($input === '' && $is_variation_target && $variation_value !== '') {
                 foreach ((array) ($definition['values'] ?? array()) as $value) {
-                    if ($this->normalize_color((string) ($value['name'] ?? '')) === $this->normalize_color($color)) {
+                    if ($this->normalize_color((string) ($value['name'] ?? '')) === $this->normalize_color($variation_value)) {
                         $input = (string) $value['id'];
                         break;
                     }
                 }
                 if ($input === '' && !empty($definition['allow_custom'])) {
-                    $input = $color;
+                    $input = $variation_value;
                 }
             }
             if ($input !== '') {
@@ -731,14 +748,14 @@ class TrendyolMarketplace extends BaseMarketplace
                     $attributes_by_id[$attribute_id] = array('attributeId' => $attribute_id, 'attributeValue' => sanitize_text_field($input));
                 }
             }
-            $needs_value = !empty($definition['required']) || ($product->is_type('variation') && $is_color);
+            $needs_value = !empty($definition['required']) || $is_variation_target;
             if ($needs_value && !isset($attributes_by_id[$attribute_id])) {
                 $missing[] = array(
                     'key' => 'attribute_' . $attribute_id,
                     'label' => (string) ($definition['name'] ?? ('Nitelik ' . $attribute_id)),
                     'type' => !empty($definition['values']) ? 'select' : 'text',
                     'options' => array_values((array) ($definition['values'] ?? array())),
-                    'suggested_value' => $is_color ? $color : '',
+                    'suggested_value' => $is_variation_target ? $variation_value : '',
                 );
             }
         }
@@ -807,7 +824,7 @@ class TrendyolMarketplace extends BaseMarketplace
         return $item;
     }
 
-    private function get_variation_color($product, $parent)
+    private function get_variation_value($product, $parent, $selected_attribute)
     {
         if (!$product->is_type('variation')) {
             return '';
@@ -815,7 +832,7 @@ class TrendyolMarketplace extends BaseMarketplace
         $attributes = $product->get_attributes();
         foreach ($attributes as $name => $value) {
             $label = function_exists('wc_attribute_label') ? wc_attribute_label($name, $parent) : $name;
-            if ($this->normalize_color($label) !== 'renk' && count($attributes) !== 1) {
+            if ($selected_attribute !== $name && $selected_attribute !== $label) {
                 continue;
             }
             if (taxonomy_exists($name)) {

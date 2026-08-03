@@ -226,7 +226,10 @@ function TrendyolCategoryMapping({ supplier }) {
                 {Object.entries(mappings).map(([categoryId, mapping]) => (
                     <div key={categoryId} style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', padding: '8px', background: '#f7f7f7' }}>
                         <span>{wooCategories.find(item => item.id === Number(categoryId))?.name || categoryId} → {mapping.category_name}{mapping.commission_rate !== undefined ? ` · Komisyon %${mapping.commission_rate}` : ''}</span>
-                        <button type="button" onClick={() => remove(categoryId)} disabled={loading}>Sil</button>
+                        <span style={{ display: 'flex', gap: '6px' }}>
+                            <button type="button" onClick={() => selectWooCategory(categoryId)} disabled={loading}>Düzenle</button>
+                            <button type="button" onClick={() => remove(categoryId)} disabled={loading}>Sil</button>
+                        </span>
                     </div>
                 ))}
             </div>

@@ -108,7 +108,7 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
         setLoading(false);
     };
 
-    const handleManualSync = async (type, selectedItems = []) => {
+    const handleManualSync = async (type, selectedItems = [], variationChoices = {}) => {
         if (type === 'product' && selectedItems.length === 0 && !showProductModal) {
             // If just clicked button for products, show modal first
             // But we need a way to support "Sync All" bypassing modal? 
@@ -120,7 +120,7 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
         setLoading(true);
         setFeedback(null);
         try {
-            const res = await api.runSync(supplier.id, type, selectedItems);
+            const res = await api.runSync(supplier.id, type, selectedItems, variationChoices);
             if (res.data.success) {
                 if (type === 'order') {
                     const jobId = Number(res.data.job_id || 0);
@@ -147,8 +147,8 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
         setLoading(false);
     };
 
-    const handleDirectSync = (items) => {
-        handleManualSync('product', items);
+    const handleDirectSync = (items, variationChoices) => {
+        handleManualSync('product', items, variationChoices);
     };
 
     const handleOrderSync = (items) => {

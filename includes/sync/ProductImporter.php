@@ -30,7 +30,7 @@ function is_skippable_product_conflict($error)
     return is_wp_error($error) && $error->get_error_code() === 'multi_sync_product_ownership_conflict';
 }
 
-function group_variation_products($products)
+function group_variation_products($products, $variation_choices = array())
 {
     $candidates = array();
     foreach ($products as $index => $product) {
@@ -58,6 +58,10 @@ function group_variation_products($products)
         });
         if (empty($varying)) {
             continue;
+        }
+        $choice = isset($variation_choices[$parent_key]) ? (string) $variation_choices[$parent_key] : '';
+        if ($choice !== '' && isset($varying[$choice])) {
+            $varying = array($choice => $varying[$choice]);
         }
         foreach ($children as $index => $child) {
             $child['variation_attributes'] = array_intersect_key((array) $child['variation_attributes'], $varying);
@@ -87,7 +91,7 @@ class ProductImporter
             multi_sync_debug_log("ProductImporter::__construct end");
     }
 
-    public function run_sync($supplier_id, $selected_skus = array())
+    public function run_sync($supplier_id, $selected_skus = array(), $variation_choices = array())
     {
         multi_sync_debug_log("ProductImporter::run_sync start for Supplier $supplier_id with " . count($selected_skus) . " selected SKUs.");
         $supplier = $this->supplier_model->get($supplier_id);
@@ -111,7 +115,7 @@ class ProductImporter
         }
 
         $grouped_indexes = array();
-        foreach (group_variation_products($products) as $parent_key => $children) {
+        foreach (group_variation_products($products, $variation_choices) as $parent_key => $children) {
             foreach (array_keys($children) as $index) {
                 $grouped_indexes[$index] = true;
             }
@@ -154,9 +158,15 @@ class ProductImporter
 
         $groups = group_variation_products($items);
         foreach ($groups as $parent_key => $children) {
+            $attribute_options = array();
+            foreach ($children as $child) {
+                $attribute_options = array_values(array_unique(array_merge($attribute_options, array_keys((array) $child['variation_attributes']))));
+            }
             foreach (array_keys($children) as $index) {
                 $items[$index]['row_type'] = 'variation';
                 $items[$index]['variation_parent_key'] = $parent_key;
+                $items[$index]['variation_attributes'] = $children[$index]['variation_attributes'];
+                $items[$index]['variation_attribute_options'] = $attribute_options;
             }
         }
         $blocked_parents = array();

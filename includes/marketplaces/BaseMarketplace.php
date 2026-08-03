@@ -83,19 +83,19 @@ abstract class BaseMarketplace implements MarketplaceInterface
             return $fallback;
         }
 
-        $key = $this->get_key();
-        $rates = $product->get_meta('_multi_sync_vat_rates', true);
-        if (is_array($rates) && array_key_exists($key, $rates) && $rates[$key] !== '') {
-            return (string) $rates[$key];
+        $rate = trim((string) $product->get_meta('_multi_sync_vat_rate', true));
+        if ($rate !== '') {
+            return $rate;
+        }
+        foreach ((array) $product->get_meta('_multi_sync_vat_rates', true) as $legacy_rate) {
+            if ((string) $legacy_rate !== '') {
+                return (string) $legacy_rate;
+            }
         }
 
         $parent_id = is_callable(array($product, 'get_parent_id')) ? (int) $product->get_parent_id() : 0;
         $parent = $parent_id > 0 ? wc_get_product($parent_id) : null;
-        $parent_rates = $parent && is_callable(array($parent, 'get_meta')) ? $parent->get_meta('_multi_sync_vat_rates', true) : array();
-
-        return is_array($parent_rates) && array_key_exists($key, $parent_rates) && $parent_rates[$key] !== ''
-            ? (string) $parent_rates[$key]
-            : $fallback;
+        return $parent ? $this->get_product_vat_rate($parent, $fallback) : $fallback;
     }
 
     public function validate_credentials($supplier)

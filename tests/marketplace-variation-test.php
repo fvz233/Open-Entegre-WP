@@ -93,8 +93,8 @@ class CommissionParentProduct extends FakeProduct
         if ($key === '_multi_sync_commission_rates') {
             return array('trendyol' => 15.5);
         }
-        if ($key === '_multi_sync_vat_rates') {
-            return array('n11' => '10');
+        if ($key === '_multi_sync_vat_rate') {
+            return '10';
         }
         return parent::get_meta($key);
     }
@@ -106,6 +106,11 @@ class CommissionVariationProduct extends FakeProduct
 }
 
 class N11VatFixture extends N11Marketplace
+{
+    public function vat($product) { return $this->get_product_vat_rate($product); }
+}
+
+class TrendyolVatFixture extends TrendyolMarketplace
 {
     public function vat($product) { return $this->get_product_vat_rate($product); }
 }
@@ -153,6 +158,16 @@ $mapped = array_map(array($trendyol, 'map_product'), $raw);
 check($mapped[0]['sku'] === '8690001' && $mapped[0]['external_sku'] === 'SELLER-SKU' && $mapped[0]['external_product_id'] === 'v1', 'Trendyol identifiers were not separated.');
 check($mapped[0]['regular_price'] === 120.0 && $mapped[0]['sale_price'] === 99.0 && $mapped[0]['stock_quantity'] === 7, 'Trendyol price or stock mapping is wrong.');
 check(count(group_variation_products($mapped)) === 1, 'Trendyol variations were not grouped.');
+$design_group = group_variation_products(array_map(array($trendyol, 'map_product'), array(
+    array('productMainId' => 'P-167', 'barcode' => 'DMS678', 'stockCode' => 'DMS678', '_parent_attributes' => array(array('attributeName' => 'Renk', 'attributeValue' => 'Osmanli'))),
+    array('productMainId' => 'P-167', 'barcode' => 'DMS679', 'stockCode' => 'DMS679', '_parent_attributes' => array(array('attributeName' => 'Renk', 'attributeValue' => 'Cicek'))),
+)));
+check(isset($design_group['P-167']) && $design_group['P-167'][0]['variation_attributes'] === array('Renk' => 'Osmanli'), 'Trendyol parent-level design attributes were not detected as variations.');
+$choice_group = group_variation_products(array(
+    array('parent_key' => 'KAZAN-1', 'variation_attributes' => array('Renk' => 'Gumus', 'Model' => 'Duz')),
+    array('parent_key' => 'KAZAN-1', 'variation_attributes' => array('Renk' => 'Siyah', 'Model' => 'Osmanli')),
+), array('KAZAN-1' => 'Renk'));
+check(array_keys($choice_group['KAZAN-1'][0]['variation_attributes']) === array('Renk'), 'Selected variation attribute was not applied.');
 
 $legacy_trendyol = new TrendyolFixture();
 $legacy_trendyol->response_queue = array(
@@ -187,7 +202,7 @@ $n11_stock_only = $n11->build_price_inventory_item_from_product(new FakeProduct(
 check(!isset($n11_stock_only['listPrice']) && !isset($n11_stock_only['salePrice']), 'n11 stock-only payload changed prices.');
 $n11_price = $n11->build_price_inventory_item_from_product(new FakeProduct(), false, true);
 check($n11_price['listPrice'] === 120.0 && $n11_price['salePrice'] === 99.0, 'n11 list/sale price payload is wrong.');
-check((new N11VatFixture())->vat(new CommissionVariationProduct()) === '10', 'Variation did not inherit marketplace VAT from parent product.');
+check((new N11VatFixture())->vat(new CommissionVariationProduct()) === '10' && (new TrendyolVatFixture())->vat(new CommissionVariationProduct()) === '10', 'Global VAT was not shared across marketplaces or inherited from the parent product.');
 
 check(resolve_inherited_commission_rate(array('trendyol' => 3), array('trendyol' => 5), 'trendyol', 8) === 3.0, 'Variation commission override failed.');
 check(resolve_inherited_commission_rate(array(), array('trendyol' => 5), 'trendyol', 8) === 5.0, 'Parent commission inheritance failed.');

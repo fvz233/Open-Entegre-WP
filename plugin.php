@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Open Entegre WP
  * Description: WooCommerce icin birden fazla dis pazar yerine baglanabilen esnek senkronizasyon eklentisi.
- * Version: 1.0.39
+ * Version: 1.0.40
  * Author: Antigravity
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -60,7 +60,7 @@ function multi_sync_redact_debug_value($value, $key = '')
     return $value;
 }
 
-define('MULTI_SYNC_VERSION', '1.0.38');
+define('MULTI_SYNC_VERSION', '1.0.40');
 define('MULTI_SYNC_SCHEMA_VERSION', '20260802-2');
 define('MULTI_SYNC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MULTI_SYNC_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -1115,10 +1115,15 @@ function multi_sync_get_product_commission_rates($product)
     return is_array($rates) ? $rates : array();
 }
 
-function multi_sync_get_product_vat_rates($product)
+function multi_sync_get_product_vat_rate($product)
 {
-    $rates = $product ? $product->get_meta('_multi_sync_vat_rates', true) : array();
-    return is_array($rates) ? $rates : array();
+    if (!$product) return '';
+    $rate = trim((string) $product->get_meta('_multi_sync_vat_rate', true));
+    if ($rate !== '') return $rate;
+    foreach ((array) $product->get_meta('_multi_sync_vat_rates', true) as $legacy_rate) {
+        if (in_array((string) $legacy_rate, array('0', '1', '10', '20'), true)) return (string) $legacy_rate;
+    }
+    return '';
 }
 
 function multi_sync_save_product_commission_rates($product)
@@ -1186,35 +1191,26 @@ add_action('woocommerce_product_options_general_product_data', 'multi_sync_rende
 function multi_sync_render_product_vat_rates()
 {
     global $product_object;
-    $rates = multi_sync_get_product_vat_rates($product_object);
-
-    echo '<div class="options_group"><p class="form-field"><strong>Pazaryeri KDV oranları</strong><br><span class="description">Varyasyonlar boşsa ana ürünün oranını kullanır.</span></p>';
-    foreach (multi_sync_get_marketplace_labels() as $key => $label) {
-        woocommerce_wp_select(array(
-            'id' => 'multi_sync_vat_rate_' . $key,
-            'label' => $label . ' KDV',
-            'value' => array_key_exists($key, $rates) ? (string) $rates[$key] : '',
-            'options' => array('' => 'Seçin', '0' => '%0', '1' => '%1', '10' => '%10', '20' => '%20'),
-        ));
-    }
+    echo '<div class="options_group">';
+    woocommerce_wp_select(array(
+        'id' => 'multi_sync_vat_rate',
+        'label' => 'KDV oranı',
+        'description' => 'Tüm pazar yerlerinde kullanılır. Varyasyon boşsa ana ürünün oranını kullanır.',
+        'value' => multi_sync_get_product_vat_rate($product_object),
+        'options' => array('' => 'Seçin', '0' => '%0', '1' => '%1', '10' => '%10', '20' => '%20'),
+    ));
     echo '</div>';
 }
 
 add_action('woocommerce_admin_process_product_object', 'multi_sync_save_product_vat_rates');
 function multi_sync_save_product_vat_rates($product)
 {
-    $rates = array();
-    $submitted = false;
-    foreach (multi_sync_get_marketplace_labels() as $key => $label) {
-        $field = 'multi_sync_vat_rate_' . $key;
-        if (!isset($_POST[$field])) continue;
-        $submitted = true;
-        $value = trim((string) wp_unslash($_POST[$field]));
-        if (in_array($value, array('0', '1', '10', '20'), true)) $rates[$key] = $value;
-    }
-    if (!$submitted) return;
-    if ($rates) $product->update_meta_data('_multi_sync_vat_rates', $rates);
-    else $product->delete_meta_data('_multi_sync_vat_rates');
+    if (!isset($_POST['multi_sync_vat_rate'])) return;
+    $value = trim((string) wp_unslash($_POST['multi_sync_vat_rate']));
+    if (in_array($value, array('0', '1', '10', '20'), true)) $product->update_meta_data('_multi_sync_vat_rate', $value);
+    else $product->delete_meta_data('_multi_sync_vat_rate');
+    $product->delete_meta_data('_multi_sync_vat_rates');
+    $product->delete_meta_data('_multi_sync_trendyol_vat_rate');
 }
 
 add_action('woocommerce_product_options_general_product_data', 'multi_sync_render_trendyol_product_fields');
@@ -1239,7 +1235,7 @@ function multi_sync_render_trendyol_product_fields()
 add_action('woocommerce_admin_process_product_object', 'multi_sync_save_trendyol_product_fields');
 function multi_sync_save_trendyol_product_fields($product)
 {
-    foreach (array('barcode', 'product_main_id', 'brand_id', 'category_id', 'dimensional_weight', 'vat_rate', 'attributes') as $key) {
+    foreach (array('barcode', 'product_main_id', 'brand_id', 'category_id', 'dimensional_weight', 'attributes') as $key) {
         $field = '_multi_sync_trendyol_' . $key;
         if (!isset($_POST[$field])) continue;
         $value = trim((string) wp_unslash($_POST[$field]));

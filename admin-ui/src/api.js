@@ -52,7 +52,7 @@ const api = {
 export default {
     getSuppliers: () => api.get('/suppliers'),
     updateSupplier: (id, data) => api.post(`/suppliers/${id}`, data),
-    runSync: (supplierId, type, selectedItems = []) => api.post('/sync/run', { supplier_id: supplierId, type, selected_items: selectedItems }),
+    runSync: (supplierId, type, selectedItems = [], variationChoices = {}) => api.post('/sync/run', { supplier_id: supplierId, type, selected_items: selectedItems, variation_choices: variationChoices }),
     previewSync: (supplierId) => api.post('/sync/preview', { supplier_id: supplierId }),
     previewStockPriceSync: (
         supplierId,

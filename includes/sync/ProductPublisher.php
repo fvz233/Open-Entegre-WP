@@ -20,7 +20,21 @@ class ProductPublisher
 
         $items = array();
         foreach ($this->products() as $product) {
+            $parent = $product->is_type('variation') ? wc_get_product($product->get_parent_id()) : null;
+            $variation_attributes = $product->is_type('variation') ? (array) $product->get_attributes() : array();
+            $variation_attribute_labels = array();
+            foreach (array_keys($variation_attributes) as $attribute_name) {
+                $variation_attribute_labels[$attribute_name] = function_exists('wc_attribute_label')
+                    ? wc_attribute_label($attribute_name, $parent)
+                    : $attribute_name;
+            }
             $mapping = $this->product_mapping($product, $context);
+            $variation_target_options = array();
+            foreach ((array) ($mapping['attribute_definitions'] ?? array()) as $definition) {
+                if (is_array($definition) && !empty($definition['id']) && (!empty($definition['slicer']) || !empty($definition['varianter']))) {
+                    $variation_target_options[] = array('id' => (string) $definition['id'], 'name' => (string) ($definition['name'] ?? $definition['id']));
+                }
+            }
             $payload = $this->build_payload($context['adapter'], $product, $mapping);
             $error_data = is_wp_error($payload) ? $payload->get_error_data() : array();
             $items[] = array(
@@ -36,7 +50,12 @@ class ProductPublisher
                 'preview_warning' => is_wp_error($payload) ? $payload->get_error_message() : '',
                 'missing_fields' => is_array($error_data) && isset($error_data['fields']) ? $error_data['fields'] : array(),
                 'row_type' => $product->is_type('variation') ? 'variation' : 'simple',
-                'variation_parent_key' => $product->is_type('variation') ? (string) $product->get_parent_id() : '',
+                'variation_parent_key' => $parent ? ((string) $parent->get_sku() ?: (string) $parent->get_id()) : '',
+                'variation_parent_name' => $parent ? (string) $parent->get_name() : '',
+                'variation_attributes' => $variation_attributes,
+                'variation_attribute_options' => array_keys($variation_attributes),
+                'variation_attribute_labels' => $variation_attribute_labels,
+                'variation_target_options' => $variation_target_options,
             );
         }
 

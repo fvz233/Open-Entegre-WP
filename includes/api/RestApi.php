@@ -275,6 +275,14 @@ class RestApi
         $supplier_id = (int) $request->get_param('supplier_id');
         $type = sanitize_key((string) $request->get_param('type'));
         $selected_items = $request->get_param('selected_items');
+        $variation_choices = array();
+        foreach ((array) $request->get_param('variation_choices') as $parent_key => $attribute_name) {
+            $parent_key = sanitize_text_field((string) $parent_key);
+            $attribute_name = sanitize_text_field((string) $attribute_name);
+            if ($parent_key !== '' && $attribute_name !== '') {
+                $variation_choices[$parent_key] = $attribute_name;
+            }
+        }
 
         multi_sync_debug_log("Params: Supplier: $supplier_id, Type: $type, Items: " . print_r($selected_items, true));
 
@@ -283,7 +291,7 @@ class RestApi
                 multi_sync_debug_log("Run Manual Sync: Instantiating ProductImporter...");
                 $importer = new ProductImporter();
                 multi_sync_debug_log("Run Manual Sync: Calling run_sync...");
-                $report = $importer->run_sync($supplier_id, is_array($selected_items) ? $selected_items : array());
+                $report = $importer->run_sync($supplier_id, is_array($selected_items) ? $selected_items : array(), $variation_choices);
                 multi_sync_debug_log("Run Manual Sync: run_sync completed.");
                 if (!empty($report['errors'])) {
                     return new \WP_Error('multi_sync_product_import_failed', implode('; ', $report['errors']), array('status' => 409, 'report' => $report));
