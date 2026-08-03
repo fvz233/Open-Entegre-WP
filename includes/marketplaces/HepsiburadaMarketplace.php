@@ -123,6 +123,8 @@ class HepsiburadaMarketplace extends BaseMarketplace
             $input = $value('attribute_' . $id, $mapped[$id] ?? '');
             $is_color = $this->normalized_name($definition['name'] ?? '') === 'renk';
             if ($input === '' && $is_color) $input = $color;
+            $is_desi = $this->normalized_name($definition['name'] ?? '') === 'desi';
+            if ($input === '' && $is_desi) $input = $this->get_product_desi($product);
             $resolved = $this->attribute_value($input, (array) ($definition['values'] ?? array()));
             if ($resolved !== '') $attributes[$id] = $resolved;
             elseif (!empty($definition['required']) || ($parent && $is_color)) $missing[] = array('key' => 'attribute_' . $id, 'label' => (string) ($definition['name'] ?? $id), 'type' => !empty($definition['values']) ? 'select' : 'text', 'options' => (array) ($definition['values'] ?? array()), 'suggested_value' => $is_color ? $color : '');

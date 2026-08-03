@@ -464,7 +464,7 @@ class PazaramaMarketplace extends BaseMarketplace
         $group = $value('product_main_id', $parent ? $parent->get_sku() : $sku);
         $category = $value('category_id', $category_mapping['category_id'] ?? '');
         $brand = $value('brand_id', $category_mapping['brand_id'] ?? '');
-        $desi = $value('desi');
+        $desi = $value('desi', $this->get_product_desi($product));
         $vat = $this->get_product_vat_rate($product, $value('vat_rate'));
         $missing = array();
         foreach (array('sku' => array('SKU / Stok Kodu', $sku), 'barcode' => array('Barkod', $code), 'product_main_id' => array('Grup / Model Kodu', $group), 'category_id' => array('Pazarama Kategori ID', $category), 'brand_id' => array('Pazarama Marka ID', $brand), 'desi' => array('Desi', $desi)) as $key => $field) {
@@ -487,6 +487,9 @@ class PazaramaMarketplace extends BaseMarketplace
                 foreach ((array) ($definition['values'] ?? array()) as $option) {
                     if ($this->pazarama_normalize($option['name'] ?? '') === $this->pazarama_normalize($color)) { $input = (string) $option['id']; break; }
                 }
+            }
+            if ($input === '' && $this->pazarama_normalize($definition['name'] ?? '') === 'desi') {
+                $input = $this->get_product_desi($product);
             }
             if ($input !== '') $attributes[] = array('attributeId' => $id, 'attributeValueId' => $input);
             elseif (!empty($definition['required']) || ($parent && $is_color)) $missing[] = array('key' => 'attribute_' . $id, 'label' => (string) ($definition['name'] ?? $id), 'type' => !empty($definition['values']) ? 'select' : 'text', 'options' => (array) ($definition['values'] ?? array()), 'suggested_value' => $is_color ? $color : '');

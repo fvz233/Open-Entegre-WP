@@ -454,7 +454,7 @@ class PttAvmMarketplace extends BaseMarketplace
         $barcode = $value('barcode', $parent ? $parent->get_sku() : $sku);
         $category = $value('category_id', $category_mapping['category_id'] ?? '');
         $vat = $this->get_product_vat_rate($product, $value('vat_rate'));
-        $desi = $value('desi');
+        $desi = $value('desi', $this->get_product_desi($product));
         $missing = array();
         foreach (array('sku' => array('SKU / Varyant Barkodu', $sku), 'barcode' => array('Ana Urun Barkodu', $barcode), 'category_id' => array('PTTAVM Kategori ID', $category), 'desi' => array('Desi', $desi)) as $key => $field) {
             if ($field[1] === '') $missing[] = array('key' => $key, 'label' => $field[0], 'type' => $key === 'desi' ? 'number' : 'text', 'options' => array());

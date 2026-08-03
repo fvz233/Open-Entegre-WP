@@ -520,6 +520,8 @@ class CiceksepetiMarketplace extends BaseMarketplace
             $input = $value('attribute_' . $id);
             if ($input === '') $input = $mapped_attributes[$id] ?? '';
             if ($input === '' && $this->ciceksepeti_normalize($definition['name'] ?? '') === 'marka') $input = (string) ($category_mapping['brand_id'] ?? $category_mapping['brand_name'] ?? '');
+            $is_desi = $this->ciceksepeti_normalize($definition['name'] ?? '') === 'desi';
+            if ($input === '' && $is_desi) $input = $this->get_product_desi($product);
             $is_color = $this->ciceksepeti_normalize($definition['name'] ?? '') === 'renk';
             if ($input === '' && $is_color) {
                 foreach ((array) ($definition['values'] ?? array()) as $option) if ($this->ciceksepeti_normalize($option['name'] ?? '') === $this->ciceksepeti_normalize($color)) { $input = (string) $option['id']; break; }

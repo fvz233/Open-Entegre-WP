@@ -98,6 +98,38 @@ abstract class BaseMarketplace implements MarketplaceInterface
         return $parent ? $this->get_product_vat_rate($parent, $fallback) : $fallback;
     }
 
+    protected function estimate_desi_from_dimensions($product)
+    {
+        if (!$product || !is_callable(array($product, 'get_length'))) {
+            return '';
+        }
+        $length = is_numeric($product->get_length()) ? (float) $product->get_length() : 0.0;
+        $width = is_callable(array($product, 'get_width')) && is_numeric($product->get_width()) ? (float) $product->get_width() : 0.0;
+        $height = is_callable(array($product, 'get_height')) && is_numeric($product->get_height()) ? (float) $product->get_height() : 0.0;
+        if ($length > 0 && $width > 0 && $height > 0) {
+            return number_format(($length * $width * $height) / 3000, 2, '.', '');
+        }
+        return '';
+    }
+
+    protected function get_product_desi($product, $fallback = '')
+    {
+        if (!$product || !is_callable(array($product, 'get_meta'))) {
+            return $fallback;
+        }
+        $desi = trim((string) $product->get_meta('_multi_sync_desi', true));
+        if ($desi === '') {
+            $estimated = $this->estimate_desi_from_dimensions($product);
+            if ($estimated !== '') {
+                return $estimated;
+            }
+            $parent_id = is_callable(array($product, 'get_parent_id')) ? (int) $product->get_parent_id() : 0;
+            $parent = $parent_id > 0 ? wc_get_product($parent_id) : null;
+            return $parent ? $this->get_product_desi($parent, $fallback) : $fallback;
+        }
+        return $desi;
+    }
+
     public function validate_credentials($supplier)
     {
         $api_key = $this->get_api_key($supplier);

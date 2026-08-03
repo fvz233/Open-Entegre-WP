@@ -404,6 +404,10 @@ class N11Marketplace extends BaseMarketplace
             if ($input === '' && $is_color) {
                 $input = $color;
             }
+            $is_desi = $this->normalized_name($definition['name'] ?? '') === 'desi';
+            if ($input === '' && $is_desi) {
+                $input = $this->get_product_desi($product);
+            }
             $selected = null;
             foreach ((array) ($definition['values'] ?? array()) as $option) {
                 if ((string) ($option['id'] ?? '') === $input || ($is_color && $this->normalized_name($option['name'] ?? '') === $this->normalized_name($input))) {
