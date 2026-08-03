@@ -24,6 +24,7 @@ function wc_get_product($id)
     return (int) $id === 2 ? new CommissionParentProduct() : null;
 }
 function wc_get_product_id_by_sku($sku) { return strtolower((string) $sku) === 'woo-sku' ? 1 : 0; }
+function get_posts($args) { return array(); }
 
 class WC_Product_Query
 {
@@ -44,7 +45,6 @@ use MultiSync\Marketplaces\N11Marketplace;
 use MultiSync\Sync\JobWorker;
 use MultiSync\Sync\StockSync;
 use function MultiSync\Sync\group_variation_products;
-use function MultiSync\Sync\is_skippable_product_conflict;
 use function MultiSync\Sync\resolve_inherited_commission_rate;
 
 function check($condition, $message)
@@ -206,8 +206,10 @@ check((new N11VatFixture())->vat(new CommissionVariationProduct()) === '10' && (
 
 check(resolve_inherited_commission_rate(array('trendyol' => 3), array('trendyol' => 5), 'trendyol', 8) === 3.0, 'Variation commission override failed.');
 check(resolve_inherited_commission_rate(array(), array('trendyol' => 5), 'trendyol', 8) === 5.0, 'Parent commission inheritance failed.');
-check(is_skippable_product_conflict(new WP_Error('multi_sync_product_ownership_conflict', 'manual')) === true, 'Manual product conflicts must be skipped safely.');
-check(is_skippable_product_conflict(new WP_Error('multi_sync_product_identifier_conflict', 'ambiguous')) === false, 'Ambiguous identifiers must remain fatal.');
+$importer = (new ReflectionClass(MultiSync\Sync\ProductImporter::class))->newInstanceWithoutConstructor();
+$owned_product_method = new ReflectionMethod(MultiSync\Sync\ProductImporter::class, 'find_product');
+$owned_product_method->setAccessible(true);
+check($owned_product_method->invoke($importer, array('sku' => 'WOO-SKU'), 999) === 1, 'Global Woo SKU was rejected because of supplier ownership.');
 check(JobWorker::normalize_remote_batch_state(array('status' => 'PROCESSING')) === 'pending', 'Pending batch state failed.');
 check(JobWorker::normalize_remote_batch_state(array('status' => 'SUCCESS')) === 'completed', 'Successful batch state failed.');
 check(JobWorker::normalize_remote_batch_state(array('status' => 'FAILED')) === 'failed', 'Failed batch state failed.');
@@ -240,7 +242,7 @@ check($discount_method->invoke(null, new NoSaleProduct()) === null, 'Regular pri
 $importer_source = file_get_contents(dirname(__DIR__) . '/includes/sync/ProductImporter.php');
 $order_source = file_get_contents(dirname(__DIR__) . '/includes/sync/OrderImporter.php');
 $job_source = file_get_contents(dirname(__DIR__) . '/includes/models/SyncJob.php');
-check(strpos($importer_source, 'multi_sync_product_ownership_conflict') !== false && strpos($importer_source, "'post_type' => 'product_variation'") !== false, 'Safe migration conflict gate is missing.');
+check(strpos($importer_source, 'multi_sync_product_ownership_conflict') === false && strpos($importer_source, "'post_type' => 'product_variation'") !== false, 'Global SKU adoption or safe variation migration is missing.');
 check(strpos($order_source, '_multi_sync_external_barcode') !== false && strpos($order_source, '_multi_sync_supplier_id') !== false, 'Supplier-scoped external order line resolution is missing.');
 check(strpos($job_source, 'recover_stale_running') !== false && strpos($job_source, '30 * MINUTE_IN_SECONDS') !== false, 'Stale job recovery is missing.');
 $updater_file = dirname(__DIR__) . '/includes/plugin-update-checker/plugin-update-checker.php';

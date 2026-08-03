@@ -25,11 +25,6 @@ function resolve_inherited_commission_rate($variation_rates, $parent_rates, $mar
     return resolve_commission_rate($parent_rates, $marketplace_key, $default_rate);
 }
 
-function is_skippable_product_conflict($error)
-{
-    return is_wp_error($error) && $error->get_error_code() === 'multi_sync_product_ownership_conflict';
-}
-
 function group_variation_products($products, $variation_choices = array())
 {
     $candidates = array();
@@ -171,7 +166,7 @@ class ProductImporter
         }
         $blocked_parents = array();
         foreach ($items as $index => $item) {
-            $match = $this->find_owned_product($item, $supplier_id);
+            $match = $this->find_product($item, $supplier_id);
             if (is_wp_error($match)) {
                 $items[$index]['preview_warning'] = $match->get_error_message();
                 $items[$index]['can_import'] = false;
@@ -181,7 +176,7 @@ class ProductImporter
             } elseif ($match && isset($item['row_type']) && $item['row_type'] === 'variation') {
                 $existing = wc_get_product($match);
                 if ($existing && !$existing->is_type('variation')) {
-                    $items[$index]['preview_warning'] = 'Existing plugin product will keep its ID and migrate to a variation.';
+                    $items[$index]['preview_warning'] = 'Existing Woo product will keep its ID and migrate to a variation.';
                 }
             }
         }
@@ -576,21 +571,16 @@ class ProductImporter
     {
         $supplier = $this->supplier_model->get($supplier_id);
         $report = $this->empty_report();
-        $match = $this->find_owned_product($data, $supplier_id);
+        $match = $this->find_product($data, $supplier_id);
         if (is_wp_error($match)) {
-            if (is_skippable_product_conflict($match)) {
-                $report['skipped']++;
-                $report['warnings'][] = $match->get_error_message();
-            } else {
-                $report['errors'][] = $match->get_error_message();
-            }
+            $report['errors'][] = $match->get_error_message();
             return $report;
         }
 
         $created = !$match;
         $product = $match ? wc_get_product($match) : new \WC_Product_Simple();
-        if (!$product || ($match && (int) $product->get_meta('_multi_sync_supplier_id', true) !== (int) $supplier_id)) {
-            $report['errors'][] = 'Product ownership conflict for ' . (string) $data['sku'];
+        if (!$product) {
+            $report['errors'][] = 'Product could not be loaded for ' . (string) $data['sku'];
             return $report;
         }
         if ($product->is_type('variable')) {
@@ -626,18 +616,9 @@ class ProductImporter
             return isset($child['external_sku']) ? (string) $child['external_sku'] : '';
         }, $children)));
         foreach ($children as $index => &$child) {
-            $match = $this->find_owned_product($child, $supplier_id);
+            $match = $this->find_product($child, $supplier_id);
             if (is_wp_error($match)) {
-                if (is_skippable_product_conflict($match)) {
-                    foreach ($children as $selected_child) {
-                        if ($this->is_selected($selected_child, $selected_skus)) {
-                            $report['skipped']++;
-                        }
-                    }
-                    $report['warnings'][] = $match->get_error_message() . ' Variation group skipped: ' . $parent_key;
-                } else {
-                    $report['errors'][] = $match->get_error_message();
-                }
+                $report['errors'][] = $match->get_error_message();
                 return $report;
             }
             if ($match && in_array((int) $match, $resolved, true)) {
@@ -655,6 +636,9 @@ class ProductImporter
                     if ($stored_parent === '') {
                         $current_parent = wc_get_product($existing->get_parent_id());
                         $stored_parent = $current_parent ? (string) $current_parent->get_meta('_multi_sync_parent_key', true) : '';
+                        if ($stored_parent === '' && $current_parent && (string) $current_parent->get_sku() === (string) $parent_key) {
+                            $stored_parent = (string) $parent_key;
+                        }
                     }
                     if ($stored_parent !== (string) $parent_key) {
                         $report['errors'][] = 'Variation already belongs to another marketplace parent.';
@@ -808,7 +792,7 @@ class ProductImporter
         return $attributes;
     }
 
-    private function find_owned_product($data, $supplier_id)
+    private function find_product($data, $supplier_id)
     {
         $ids = array();
         $identifiers = array(
@@ -862,12 +846,7 @@ class ProductImporter
         if (empty($sku_ids)) {
             return 0;
         }
-        $sku_id = $sku_ids[0];
-        $owner = (int) get_post_meta($sku_id, '_multi_sync_supplier_id', true);
-        if ($owner !== (int) $supplier_id) {
-            return new \WP_Error('multi_sync_product_ownership_conflict', 'Woo SKU belongs to a manual product or another supplier: ' . (string) $data['sku']);
-        }
-        return $sku_id;
+        return $sku_ids[0];
     }
 
     private function find_variable_parent($parent_key, $supplier_id, $marketplace_key)
@@ -883,7 +862,10 @@ class ProductImporter
         if (count($ids) > 1) {
             return new \WP_Error('multi_sync_parent_conflict', 'Multiple variable parents match ' . $parent_key);
         }
-        return empty($ids) ? 0 : (int) $ids[0];
+        if (!empty($ids)) {
+            return (int) $ids[0];
+        }
+        return (int) wc_get_product_id_by_sku((string) $parent_key);
     }
 
     private function choose_new_woo_sku($data, $reserved_skus = array())
