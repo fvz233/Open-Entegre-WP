@@ -22,6 +22,7 @@ function ProductSelectorModal({
     const [selectedSkus, setSelectedSkus] = useState(new Set());
     const [filter, setFilter] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
     const [previewWarning, setPreviewWarning] = useState('');
     const [publishValues, setPublishValues] = useState({});
     const [productTab, setProductTab] = useState('simple');
@@ -61,6 +62,7 @@ function ProductSelectorModal({
                 setPreviewWarning(res.data?.catalog_error || '');
                 setSelectedSkus(new Set());
                 setCategoryFilter('');
+                setStatusFilter('');
                 setPublishValues({});
                 setVariationChoices({});
                 setVariationTargetChoices({});
@@ -140,6 +142,7 @@ function ProductSelectorModal({
 
     const filteredItems = items.filter(item => {
         if (categoryFilter && !(Array.isArray(item.category_names) && item.category_names.includes(categoryFilter))) return false;
+        if (statusFilter && item.upload_action !== statusFilter) return false;
         if (!filter) return true;
         const search = filter.toLowerCase();
         return (item.name && item.name.toLowerCase().includes(search)) ||
@@ -303,16 +306,28 @@ function ProductSelectorModal({
                 />
 
                 {isProductPublishPreview && categories.length > 0 && (
-                    <select
-                        value={categoryFilter}
-                        onChange={e => setCategoryFilter(e.target.value)}
-                        style={{ marginBottom: '10px', padding: '8px', width: '100%' }}
-                    >
-                        <option value="">Tum Kategoriler</option>
-                        {categories.map(category => (
-                            <option key={category} value={category}>{category}</option>
-                        ))}
-                    </select>
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                        <select
+                            value={categoryFilter}
+                            onChange={e => setCategoryFilter(e.target.value)}
+                            style={{ padding: '4px 6px', fontSize: '12px' }}
+                        >
+                            <option value="">Tum Kategoriler</option>
+                            {categories.map(category => (
+                                <option key={category} value={category}>{category}</option>
+                            ))}
+                        </select>
+                        <select
+                            value={statusFilter}
+                            onChange={e => setStatusFilter(e.target.value)}
+                            style={{ padding: '4px 6px', fontSize: '12px' }}
+                        >
+                            <option value="">Tum Durumlar</option>
+                            <option value="upload">Yüklenecek</option>
+                            <option value="update">Güncellenecek</option>
+                            <option value="unchanged">Değişiklik yok</option>
+                        </select>
+                    </div>
                 )}
 
                 {previewWarning && (
