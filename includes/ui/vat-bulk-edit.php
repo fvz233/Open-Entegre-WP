@@ -33,5 +33,6 @@ function multi_sync_save_product_vat_bulk_edit($product) {
         $product->delete_meta_data('_multi_sync_vat_rate');
     }
     $product->delete_meta_data('_multi_sync_vat_rates');
-    // save handled by WC's bulk_edit_save after this hook fires
+    // WC fires this hook AFTER $product->save() (class-wc-admin-post-types.php), so persist meta explicitly.
+    $product->save_meta_data();
 }
