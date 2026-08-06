@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Open Entegre
  * Description: WooCommerce icin birden fazla dis pazar yerine baglanabilen esnek senkronizasyon eklentisi.
- * Version: 1.0.52
+ * Version: 1.0.53
  * Author: Fevzi Demirtaş
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
