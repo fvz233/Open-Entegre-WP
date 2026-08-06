@@ -21,6 +21,7 @@ function ProductSelectorModal({
     const [loading, setLoading] = useState(true);
     const [selectedSkus, setSelectedSkus] = useState(new Set());
     const [filter, setFilter] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('');
     const [previewWarning, setPreviewWarning] = useState('');
     const [publishValues, setPublishValues] = useState({});
     const [productTab, setProductTab] = useState('simple');
@@ -59,6 +60,7 @@ function ProductSelectorModal({
                 setStokKodsuzItems([]);
                 setPreviewWarning(res.data?.catalog_error || '');
                 setSelectedSkus(new Set());
+                setCategoryFilter('');
                 setPublishValues({});
                 setVariationChoices({});
                 setVariationTargetChoices({});
@@ -134,7 +136,10 @@ function ProductSelectorModal({
         return item.can_import !== false || (fields.length > 0 && fields.every(field => getPublishValue(item, field) !== '' || isVariationFieldResolved(item, field)));
     };
 
+    const categories = [...new Set(items.flatMap(item => Array.isArray(item.category_names) ? item.category_names : []))].sort((a, b) => a.localeCompare(b, 'tr'));
+
     const filteredItems = items.filter(item => {
+        if (categoryFilter && !(Array.isArray(item.category_names) && item.category_names.includes(categoryFilter))) return false;
         if (!filter) return true;
         const search = filter.toLowerCase();
         return (item.name && item.name.toLowerCase().includes(search)) ||
@@ -296,6 +301,19 @@ function ProductSelectorModal({
                     onChange={e => setFilter(e.target.value)}
                     style={{ marginBottom: '10px', padding: '8px', width: '100%' }}
                 />
+
+                {isProductPublishPreview && categories.length > 0 && (
+                    <select
+                        value={categoryFilter}
+                        onChange={e => setCategoryFilter(e.target.value)}
+                        style={{ marginBottom: '10px', padding: '8px', width: '100%' }}
+                    >
+                        <option value="">Tum Kategoriler</option>
+                        {categories.map(category => (
+                            <option key={category} value={category}>{category}</option>
+                        ))}
+                    </select>
+                )}
 
                 {previewWarning && (
                     <div style={{ marginBottom: '10px', padding: '8px 10px', background: '#fff8e8', border: '1px solid #f0d79b', borderRadius: '4px', color: '#7a5b00' }}>
@@ -635,8 +653,8 @@ function ProductSelectorModal({
                 <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
                     {isProductPublishPreview && (
                         <span style={{ color: '#475467', fontSize: '13px', fontWeight: 500 }}>
-                            {items.filter(item => item.upload_action === 'upload').length} yüklenecek · {items.filter(item => item.upload_action === 'update').length} güncellenecek
-                            {items.some(item => item.upload_action === 'unchanged') ? ` · ${items.filter(item => item.upload_action === 'unchanged').length} değişiklik yok` : ''}
+                            {filteredItems.filter(item => item.upload_action === 'upload').length} yüklenecek · {filteredItems.filter(item => item.upload_action === 'update').length} güncellenecek
+                            {filteredItems.some(item => item.upload_action === 'unchanged') ? ` · ${filteredItems.filter(item => item.upload_action === 'unchanged').length} değişiklik yok` : ''}
                         </span>
                     )}
                     <div style={{ display: 'flex', gap: '10px' }}>

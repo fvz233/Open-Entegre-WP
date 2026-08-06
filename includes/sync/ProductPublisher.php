@@ -61,6 +61,7 @@ class ProductPublisher
                 'selection_key' => (string) $product->get_id(),
                 'sku' => (string) $product->get_sku(),
                 'name' => (string) $product->get_name(),
+                'category_names' => $this->product_category_names($product),
                 'upload_action' => $upload_action,
                 'regular_price' => $product->get_regular_price(),
                 'sale_price' => $product->get_sale_price(),
@@ -86,6 +87,24 @@ class ProductPublisher
             'catalog_products' => count($catalog_products),
             'catalog_error' => $catalog_error,
         );
+    }
+
+    private function product_category_names($product)
+    {
+        if ($product->is_type('variation')) {
+            $parent = wc_get_product($product->get_parent_id());
+            if ($parent) {
+                $product = $parent;
+            }
+        }
+        $names = array();
+        foreach ((array) $product->get_category_ids() as $category_id) {
+            $term = get_term((int) $category_id, 'product_cat');
+            if ($term && !is_wp_error($term)) {
+                $names[] = (string) $term->name;
+            }
+        }
+        return array_values(array_unique($names));
     }
 
     public function publish($supplier_id, $product_ids = array(), $overrides = array())
