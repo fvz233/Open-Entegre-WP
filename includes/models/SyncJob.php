@@ -302,7 +302,7 @@ class SyncJob
     public function delete($id)
     {
         $job = $this->get((int) $id);
-        if (!$job || $job['status'] === 'running') {
+        if (!$job) {
             return false;
         }
         global $wpdb;
@@ -317,12 +317,9 @@ class SyncJob
     {
         global $wpdb;
         if (class_exists('\MultiSync\Models\SyncJobItem')) {
-            $wpdb->query(
-                "DELETE FROM {$wpdb->prefix}multi_sync_job_items
-                 WHERE job_id IN (SELECT id FROM {$this->table_name} WHERE status <> 'running')"
-            );
+            $wpdb->query("DELETE FROM {$wpdb->prefix}multi_sync_job_items");
         }
-        return $wpdb->query("DELETE FROM {$this->table_name} WHERE status <> 'running'");
+        return $wpdb->query("DELETE FROM {$this->table_name}");
     }
 
     private function decode_job_row($row)

@@ -191,7 +191,7 @@ function SyncCenter({ suppliers = [] }) {
     };
 
     const handleClearJobs = async () => {
-        if (!confirm('Çalışmayan TÜM kuyruk işi kayıtları silinsin mi? (çalışan işler korunur)')) {
+        if (!confirm('TÜM kuyruk işi kayıtları silinsin mi?')) {
             return;
         }
         try {

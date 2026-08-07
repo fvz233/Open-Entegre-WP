@@ -1019,7 +1019,7 @@ class RestApi
         if (!$deleted) {
             return rest_ensure_response(array(
                 'success' => false,
-                'message' => 'Is silinemedi. Calisan isler veya bulunamayan kayitlar silinemez.',
+                'message' => 'Is silinemedi (kayit bulunamadi).',
             ));
         }
         return rest_ensure_response(array('success' => true));
@@ -1031,7 +1031,7 @@ class RestApi
         return rest_ensure_response(array(
             'success' => $deleted !== false,
             'deleted' => (int) $deleted,
-            'message' => $deleted !== false ? 'Calismayan tum is kayitlari silindi.' : 'Is kayitlari silinemedi.',
+            'message' => $deleted !== false ? 'Tum is kayitlari silindi.' : 'Is kayitlari silinemedi.',
         ));
     }
 
