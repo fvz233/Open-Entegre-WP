@@ -572,8 +572,8 @@ class CiceksepetiMarketplace extends BaseMarketplace
     private function ciceksepeti_images($product, $parent, $override)
     {
         $ids = array_merge(array($product->get_image_id()), $parent ? array($parent->get_image_id()) : array(), $parent ? $parent->get_gallery_image_ids() : $product->get_gallery_image_ids());
-        $images = preg_match('#^https?://#i', $override) ? array(array('url' => esc_url_raw($override))) : array();
-        foreach (array_unique(array_filter($ids)) as $id) { $url = wp_get_attachment_url($id); if (preg_match('#^https?://#i', (string) $url)) $images[] = array('url' => $url); if (count($images) === 8) break; }
+        $images = preg_match('#^https?://#i', $override) ? array(esc_url_raw($override)) : array();
+        foreach (array_unique(array_filter($ids)) as $id) { $url = wp_get_attachment_url($id); if (preg_match('#^https?://#i', (string) $url)) $images[] = $url; if (count($images) === 8) break; }
         return $images;
     }
 

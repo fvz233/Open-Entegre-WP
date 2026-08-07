@@ -101,7 +101,7 @@ check($pazarama['images'][0]['imageurl'] === 'http://example.test/7.jpg', 'Pazar
 
 $cicek = (new MultiSync\Marketplaces\CiceksepetiMarketplace())->build_product_item_from_product($product, array('commission_rate' => 10), array('category_id' => '42', 'vat_rate' => '20'));
 check(!is_wp_error($cicek) && $cicek['mainProductCode'] === '8690000000001' && $cicek['categoryId'] === 42 && $cicek['salesPrice'] === 111.0, 'Ciceksepeti product payload failed.');
-check($cicek['images'][0]['url'] === 'http://example.test/7.jpg', 'Ciceksepeti HTTP image mapping failed.');
+check($cicek['images'][0] === 'http://example.test/7.jpg', 'Ciceksepeti HTTP image mapping failed.');
 
 $amazon = (new MultiSync\Marketplaces\AmazonMarketplace())->build_product_item_from_product($product, array('commission_rate' => 10), array('category_id' => 'PRODUCT', 'brand' => 'Demsu', 'barcode' => '8690000000001'));
 check(!is_wp_error($amazon) && $amazon['productType'] === 'PRODUCT' && isset($amazon['attributes']['purchasable_offer']), 'Amazon listing payload failed.');
