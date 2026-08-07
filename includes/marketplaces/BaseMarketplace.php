@@ -391,8 +391,9 @@ abstract class BaseMarketplace implements MarketplaceInterface
             }
         }
 
-        // Error responses are always stored so 4xx/5xx bodies stay debuggable even with debug logging off.
-        if (!$is_error && !multi_sync_debug_enabled()) {
+        // Error responses and batch-status polls are always stored so 4xx/5xx bodies and async batch results stay debuggable even with debug logging off.
+        $is_batch_status = isset($entry['operation']) && strpos((string) $entry['operation'], 'batch-status') !== false;
+        if (!$is_error && !$is_batch_status && !multi_sync_debug_enabled()) {
             return;
         }
 
