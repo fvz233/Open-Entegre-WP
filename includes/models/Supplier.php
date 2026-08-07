@@ -204,11 +204,6 @@ class Supplier
             $formats[] = '%s';
         }
 
-        if (isset($data['commission_rate'])) {
-            $fields['commission_rate'] = (float) $data['commission_rate'];
-            $formats[] = '%f';
-        }
-
         if (isset($data['color'])) {
             $fields['color'] = sanitize_hex_color($data['color']);
             $formats[] = '%s';

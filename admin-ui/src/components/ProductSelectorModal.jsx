@@ -285,10 +285,9 @@ function ProductSelectorModal({
             zIndex: 99999
         }}>
             <div style={{
-                backgroundColor: 'white', padding: '20px', borderRadius: '8px',
-                width: 'min(1100px, 96vw)',
-                height: '84vh',
-                maxHeight: '84vh',
+                backgroundColor: 'white', padding: '12px', borderRadius: '4px',
+                width: '100%',
+                height: '100%',
                 display: 'flex',
                 flexDirection: 'column'
             }}>
@@ -310,7 +309,7 @@ function ProductSelectorModal({
                         <select
                             value={categoryFilter}
                             onChange={e => setCategoryFilter(e.target.value)}
-                            style={{ padding: '4px 6px', fontSize: '12px' }}
+                            style={{ padding: '6px 10px', fontSize: '13px', minWidth: '200px' }}
                         >
                             <option value="">Tum Kategoriler</option>
                             {categories.map(category => (
@@ -320,7 +319,7 @@ function ProductSelectorModal({
                         <select
                             value={statusFilter}
                             onChange={e => setStatusFilter(e.target.value)}
-                            style={{ padding: '4px 6px', fontSize: '12px' }}
+                            style={{ padding: '6px 10px', fontSize: '13px', minWidth: '160px' }}
                         >
                             <option value="">Tum Durumlar</option>
                             <option value="upload">Yüklenecek</option>

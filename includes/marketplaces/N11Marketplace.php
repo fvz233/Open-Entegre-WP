@@ -434,7 +434,7 @@ class N11Marketplace extends BaseMarketplace
         }
         $description = $product->get_description() ?: ($parent ? $parent->get_description() : '') ?: $product->get_short_description() ?: $product->get_name();
         return array(
-            'title' => mb_substr($product->get_name(), 0, 100), 'description' => $description,
+            'title' => mb_substr($this->product_export_name($product, $parent), 0, 100), 'description' => $description,
             'categoryId' => (int) $category_id, 'currencyType' => 'TL', 'productMainId' => $model,
             'preparingDay' => max(1, (int) $value('preparing_day', 3)), 'shipmentTemplate' => $shipment,
             'stockCode' => $sku, 'barcode' => $barcode, 'quantity' => $price['quantity'],

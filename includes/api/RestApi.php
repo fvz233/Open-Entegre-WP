@@ -774,7 +774,7 @@ class RestApi
         if (!$entry) {
             return rest_ensure_response(array(
                 'success' => false,
-                'message' => 'Debug kaydi bulunamadi. Once manuel onizleme veya senkron calistirin.',
+                'message' => 'Debug kaydi bulunamadi. Once manuel onizleme, senkron veya urun gonderimi calistirin.',
                 'history' => is_array($history) ? $history : array(),
             ));
         }

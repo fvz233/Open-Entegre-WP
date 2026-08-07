@@ -49,26 +49,7 @@ abstract class BaseMarketplace implements MarketplaceInterface
             return is_numeric($price) ? round((float) $price, 2) : 0.0;
         }
 
-        $marketplace_key = is_callable(array($this, 'get_key')) ? $this->get_key() : '';
-        $rates = $product->get_meta('_multi_sync_commission_rates', true);
-        $rate = is_array($rates) && array_key_exists($marketplace_key, $rates)
-            ? (float) $rates[$marketplace_key]
-            : null;
-
-        if ($rate === null && is_callable(array($product, 'get_parent_id'))) {
-            $parent_id = (int) $product->get_parent_id();
-            $parent = $parent_id > 0 ? wc_get_product($parent_id) : null;
-            $parent_rates = $parent && is_callable(array($parent, 'get_meta'))
-                ? $parent->get_meta('_multi_sync_commission_rates', true)
-                : array();
-            if (is_array($parent_rates) && array_key_exists($marketplace_key, $parent_rates)) {
-                $rate = (float) $parent_rates[$marketplace_key];
-            }
-        }
-
-        if ($rate === null && is_numeric($fallback_rate)) {
-            $rate = (float) $fallback_rate;
-        }
+        $rate = is_numeric($fallback_rate) ? (float) $fallback_rate : null;
 
         if ($rate === null || $rate <= 0 || $rate >= 100) {
             return round((float) $price, 2);
@@ -96,6 +77,26 @@ abstract class BaseMarketplace implements MarketplaceInterface
         $parent_id = is_callable(array($product, 'get_parent_id')) ? (int) $product->get_parent_id() : 0;
         $parent = $parent_id > 0 ? wc_get_product($parent_id) : null;
         return $parent ? $this->get_product_vat_rate($parent, $fallback) : $fallback;
+    }
+
+    public function product_export_name($product, $parent = null)
+    {
+        $name = trim(wp_strip_all_tags((string) $product->get_name()));
+        if ($parent) {
+            $parent_name = trim(wp_strip_all_tags((string) $parent->get_name()));
+            if ($name === '' && is_callable(array($product, 'get_formatted_name'))) {
+                $name = trim(wp_strip_all_tags($product->get_formatted_name()));
+                if ($parent_name !== '' && mb_strpos($name, $parent_name) === 0) {
+                    $name = trim(substr($name, mb_strlen($parent_name)), " –- \t");
+                }
+            }
+            if ($name === '') {
+                $name = $parent_name;
+            } elseif ($parent_name !== '' && mb_strpos($name, $parent_name) !== 0) {
+                $name = $parent_name . ' - ' . $name;
+            }
+        }
+        return trim(preg_replace('/[ \t]+/u', ' ', $name));
     }
 
     protected function estimate_desi_from_dimensions($product)
@@ -186,6 +187,7 @@ abstract class BaseMarketplace implements MarketplaceInterface
             'timestamp' => current_time('mysql'),
             'supplier_id' => $this->get_supplier_row_id($supplier),
             'marketplace_key' => is_callable(array($this, 'get_key')) ? $this->get_key() : '',
+            'operation' => strtoupper($method) . ' ' . (string) parse_url($url, PHP_URL_PATH),
             'request' => array(
                 'method' => strtoupper($method),
                 'url' => $url,
@@ -376,7 +378,21 @@ abstract class BaseMarketplace implements MarketplaceInterface
 
     protected function store_http_debug($supplier, $entry)
     {
-        if (!is_array($entry) || !function_exists('multi_sync_debug_enabled') || !multi_sync_debug_enabled()) {
+        if (!is_array($entry) || !function_exists('multi_sync_debug_enabled')) {
+            return;
+        }
+
+        $is_error = false;
+        if (isset($entry['response']) && is_array($entry['response'])) {
+            if (!empty($entry['response']['error'])) {
+                $is_error = true;
+            } elseif (!empty($entry['response']['status_code']) && (int) $entry['response']['status_code'] >= 400) {
+                $is_error = true;
+            }
+        }
+
+        // Error responses are always stored so 4xx/5xx bodies stay debuggable even with debug logging off.
+        if (!$is_error && !multi_sync_debug_enabled()) {
             return;
         }
 

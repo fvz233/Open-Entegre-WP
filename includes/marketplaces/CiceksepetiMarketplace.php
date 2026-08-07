@@ -539,7 +539,7 @@ class CiceksepetiMarketplace extends BaseMarketplace
         if ($missing) return new \WP_Error('multi_sync_ciceksepeti_product_incomplete', 'Eksik Ciceksepeti bilgilerini doldurun.', array('fields' => $missing));
         $source = $parent ?: $product;
         $description = $source->get_description() ?: $source->get_short_description() ?: $source->get_name();
-        return array('productName' => $product->get_name(), 'mainProductCode' => $model, 'stockCode' => $sku, 'categoryId' => (int) $category, 'barcode' => $barcode, 'isActive' => true, 'salesPrice' => $price['salesPrice'], 'listPrice' => $price['listPrice'], 'stockQuantity' => $price['stockQuantity'], 'vatRate' => (int) $vat, 'detailDescription' => mb_substr($description, 0, 7750), 'images' => $images, 'attributes' => $attributes, 'deliveryType' => 2, 'deliveryMessageType' => 5);
+        return array('productName' => $this->product_export_name($product, $parent), 'mainProductCode' => $model, 'stockCode' => $sku, 'categoryId' => (int) $category, 'barcode' => $barcode, 'isActive' => true, 'salesPrice' => $price['salesPrice'], 'listPrice' => $price['listPrice'], 'stockQuantity' => $price['stockQuantity'], 'vatRate' => (int) $vat, 'detailDescription' => mb_substr($description, 0, 7750), 'images' => $images, 'attributes' => $attributes, 'deliveryType' => 2, 'deliveryMessageType' => 5);
     }
 
     public function push_products($supplier, $items)

@@ -19,7 +19,6 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
         schedule: 'manual',
         interval_minutes: 5
     });
-    const [cutPercentage, setCutPercentage] = useState(0);
     const [loading, setLoading] = useState(false);
     const [showProductModal, setShowProductModal] = useState(false);
     const [showOrderModal, setShowOrderModal] = useState(false);
@@ -42,9 +41,6 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
 
     useEffect(() => {
         loadSettings();
-        if (supplier) {
-            setCutPercentage(supplier.commission_rate || 0);
-        }
         setDebugError('');
         setDebugEntry(null);
         setDebugEntries([]);
@@ -92,9 +88,6 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
         try {
             // Save sync settings
             await api.saveSyncSettings(supplier.id, settings);
-            // Save cut percentage
-            await api.updateSupplier(supplier.id, { commission_rate: cutPercentage });
-
             setFeedback({ type: 'success', message: 'Tüm ayarlar kaydedildi.' });
 
             // Refresh supplier data to show updated values
@@ -209,18 +202,20 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
         setLoading(false);
     };
 
-    const loadMarketplaceDebug = async () => {
+    const loadMarketplaceDebug = async (opOverride = null, statusOverride = null) => {
         if (!supplier) return;
 
         setDebugLoading(true);
         setDebugError('');
         try {
             const options = { limit: 40 };
-            if (debugFilterOperation.trim() !== '') {
-                options.operation = debugFilterOperation.trim();
+            const operation = opOverride !== null ? opOverride : debugFilterOperation.trim();
+            const status = statusOverride !== null ? statusOverride : debugFilterStatus;
+            if (operation !== '') {
+                options.operation = operation;
             }
-            if (debugFilterStatus !== '') {
-                options.status_code = Number(debugFilterStatus);
+            if (status !== '') {
+                options.status_code = Number(status);
             }
 
             const res = await api.getMarketplaceHttpDebug(supplier.id, supplier.marketplace_key || '', options);
@@ -444,23 +439,6 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
                         <span>Not: Otomatik fiyat güncelleme ve otomatik ürün içe aktarımı kaldırıldı. Fiyat gönderimi sadece manuel stok/fiyat ekranından yapılır.</span>
                     </div>
 
-                    <div className="form-group">
-                        <label>Komisyon Oranı (%)</label>
-                        <div className="info-note" style={{ marginTop: 0 }}>
-                            <span className="info-note-icon" aria-hidden="true">i</span>
-                            <span>İçe aktarılan ürün fiyatlarını bu oran kadar düşürür. Örnek: API fiyatı 100 ve oran %20 ise ürün 80 olarak kaydedilir.</span>
-                        </div>
-                        <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            max="100"
-                            value={cutPercentage}
-                            onChange={e => setCutPercentage(e.target.value)}
-                            style={{ width: '120px' }}
-                        />
-                    </div>
-
                     <button className="btn" onClick={handleSave} disabled={loading}>
                         {loading ? 'Kaydediliyor...' : 'Tüm Ayarları Kaydet'}
                     </button>
@@ -527,6 +505,14 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
                                     style={{ padding: '4px 10px', fontSize: '12px' }}
                                 >
                                     {debugLoading ? 'Yükleniyor...' : 'Debug Geçmişini Getir'}
+                                </button>
+                                <button
+                                    className="btn"
+                                    onClick={() => loadMarketplaceDebug('products', '400')}
+                                    disabled={debugLoading}
+                                    style={{ padding: '4px 10px', fontSize: '12px', background: '#c0392b', color: 'white' }}
+                                >
+                                    Ürün Gönderim Hatası (400)
                                 </button>
                                 <button
                                     className="btn"

@@ -60,7 +60,7 @@ class ProductPublisher
             $items[] = array(
                 'selection_key' => (string) $product->get_id(),
                 'sku' => (string) $product->get_sku(),
-                'name' => (string) $product->get_name(),
+                'name' => is_callable(array($context['adapter'], 'product_export_name')) ? $context['adapter']->product_export_name($product, $parent) : (string) $product->get_name(),
                 'category_names' => $this->product_category_names($product),
                 'upload_action' => $upload_action,
                 'regular_price' => $product->get_regular_price(),
@@ -437,7 +437,25 @@ class ProductPublisher
         if ($category_id !== '' && !array_key_exists('commission_rate', $mapping) && isset($context['commission_rates'][$category_id])) {
             $mapping['commission_rate'] = (float) $context['commission_rates'][$category_id];
         }
-        return array_merge($mapping, $this->brand_mapping($product, $context['brand_mappings']));
+        $mapping = array_merge($mapping, $this->brand_mapping($product, $context['brand_mappings']));
+        if ($product->is_type('variation') && empty($mapping['brand_id']) && empty($mapping['brand_name'])) {
+            $parent = wc_get_product($product->get_parent_id());
+            $brand = $parent ? $this->woo_product_brand($parent) : '';
+            if ($brand !== '') $mapping['brand_name'] = $brand;
+        }
+        return $mapping;
+    }
+
+    private function woo_product_brand($product)
+    {
+        foreach (array_keys((array) $product->get_attributes()) as $name) {
+            $label = function_exists('wc_attribute_label') ? wc_attribute_label($name, $product) : $name;
+            $normalized = mb_strtolower((string) $label, 'UTF-8');
+            if (strpos($normalized, 'marka') === false && strpos($normalized, 'brand') === false) continue;
+            $value = trim((string) $product->get_attribute($name));
+            if ($value !== '') return $value;
+        }
+        return '';
     }
 
     private function build_payload($adapter, $product, $mapping, $overrides = array())

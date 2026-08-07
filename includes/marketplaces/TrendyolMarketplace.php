@@ -805,7 +805,7 @@ class TrendyolMarketplace extends BaseMarketplace
 
         $item = array(
             'barcode' => $barcode,
-            'title' => mb_substr((string) $product->get_name(), 0, 100),
+            'title' => mb_substr($this->product_export_name($product, $parent), 0, 100),
             'productMainId' => $product_main_id,
             'brandId' => $brand_id,
             'categoryId' => $category_id,

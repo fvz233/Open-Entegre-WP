@@ -428,7 +428,7 @@ class AmazonMarketplace extends BaseMarketplace
         $price = $this->build_price_inventory_item_from_product($product, true, true, $category_mapping['commission_rate'] ?? null);
         if (!$price || $price['price'] <= 0) return new \WP_Error('multi_sync_amazon_product_price', 'Urun fiyati sifirdan buyuk olmali.');
         $attributes = array(
-            'item_name' => array(array('value' => $source->get_name(), 'language_tag' => 'tr_TR', 'marketplace_id' => self::TR_MARKETPLACE_ID)),
+            'item_name' => array(array('value' => $this->product_export_name($product, $parent), 'language_tag' => 'tr_TR', 'marketplace_id' => self::TR_MARKETPLACE_ID)),
             'product_description' => array(array('value' => wp_strip_all_tags($description), 'language_tag' => 'tr_TR', 'marketplace_id' => self::TR_MARKETPLACE_ID)),
             'condition_type' => array(array('value' => 'new_new', 'marketplace_id' => self::TR_MARKETPLACE_ID)),
             'merchant_suggested_asin' => array(),

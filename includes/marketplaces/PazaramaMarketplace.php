@@ -500,7 +500,8 @@ class PazaramaMarketplace extends BaseMarketplace
         if (!$images) $missing[] = array('key' => 'image_url', 'label' => 'Gorsel URL', 'type' => 'text', 'options' => array());
         if ($missing) return new \WP_Error('multi_sync_pazarama_product_incomplete', 'Eksik Pazarama bilgilerini doldurun.', array('fields' => $missing));
         $description = $product->get_description() ?: ($parent ? $parent->get_description() : '') ?: $product->get_short_description() ?: $product->get_name();
-        return array('code' => $code, 'name' => mb_substr($product->get_name(), 0, 100), 'displayName' => mb_substr($product->get_name(), 0, 250), 'description' => mb_substr(wp_strip_all_tags($description), 0, 500), 'groupCode' => mb_substr($group, 0, 10), 'brandId' => $brand, 'desi' => (int) $desi, 'stockCount' => max(0, (int) $price['quantity']), 'stockCode' => $sku, 'currencyType' => 'TRY', 'listPrice' => $price['listPrice'], 'salePrice' => $price['salePrice'], 'vatRate' => (int) $vat, 'images' => $images, 'categoryId' => $category, 'attributes' => $attributes);
+        $export_name = $this->product_export_name($product, $parent);
+        return array('code' => $code, 'name' => mb_substr($export_name, 0, 100), 'displayName' => mb_substr($export_name, 0, 250), 'description' => mb_substr(wp_strip_all_tags($description), 0, 500), 'groupCode' => mb_substr($group, 0, 10), 'brandId' => $brand, 'desi' => (int) $desi, 'stockCount' => max(0, (int) $price['quantity']), 'stockCode' => $sku, 'currencyType' => 'TRY', 'listPrice' => $price['listPrice'], 'salePrice' => $price['salePrice'], 'vatRate' => (int) $vat, 'images' => $images, 'categoryId' => $category, 'attributes' => $attributes);
     }
 
     public function push_products($supplier, $items)
