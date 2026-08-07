@@ -18,6 +18,9 @@ const updateUrl = (typeof window !== 'undefined' && window.multiSyncSettings && 
 const updateStatus = (typeof window !== 'undefined' && window.multiSyncSettings && window.multiSyncSettings.updateStatus)
     ? String(window.multiSyncSettings.updateStatus)
     : '';
+const pluginVersion = (typeof window !== 'undefined' && window.multiSyncSettings && window.multiSyncSettings.version)
+    ? String(window.multiSyncSettings.version)
+    : '';
 
 const marketplaceVisuals = {
     trendyol: { short: 'TY', color: '#f27a1a', icon: 'trendyol.png' },
@@ -123,6 +126,7 @@ function App() {
         <div className="multi-sync-container">
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <h1>Open Entegre</h1>
+                {pluginVersion && <span style={{ fontSize: '12px', color: '#888' }}>v{pluginVersion}</span>}
                 {updateUrl && <a className="button button-small" href={updateUrl}>Güncelle</a>}
                 {updateStatus === 'current' && <span style={{ color: '#50705a' }}>Sürüm güncel.</span>}
                 {updateStatus === 'error' && <span style={{ color: '#b32d2e' }}>Güncelleme kontrol edilemedi.</span>}

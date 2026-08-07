@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Open Entegre
  * Description: WooCommerce icin birden fazla dis pazar yerine baglanabilen esnek senkronizasyon eklentisi.
- * Version: 1.0.53
+ * Version: 1.0.54
  * Author: Fevzi Demirtaş
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -60,7 +60,7 @@ function multi_sync_redact_debug_value($value, $key = '')
     return $value;
 }
 
-define('MULTI_SYNC_VERSION', '1.0.53');
+define('MULTI_SYNC_VERSION', '1.0.54');
 define('MULTI_SYNC_SCHEMA_VERSION', '20260802-2');
 define('MULTI_SYNC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MULTI_SYNC_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -597,6 +597,7 @@ function multi_sync_enqueue_scripts($hook)
         'root' => esc_url_raw(rest_url()),
         'nonce' => wp_create_nonce('wp_rest'),
         'pluginUrl' => esc_url_raw(MULTI_SYNC_PLUGIN_URL),
+        'version' => MULTI_SYNC_VERSION,
         'iconsVersion' => multi_sync_get_icon_cache_version(),
         'updateUrl' => add_query_arg(array(
             'action' => 'multi_sync_update',
