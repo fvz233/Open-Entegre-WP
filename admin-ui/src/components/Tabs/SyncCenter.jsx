@@ -190,6 +190,26 @@ function SyncCenter({ suppliers = [] }) {
         }
     };
 
+    const handleClearJobs = async () => {
+        if (!confirm('Çalışmayan TÜM kuyruk işi kayıtları silinsin mi? (çalışan işler korunur)')) {
+            return;
+        }
+        try {
+            const res = await api.clearJobs();
+            if (!res.data?.success) {
+                alert(res.data?.message || 'Temizlenemedi');
+                return;
+            }
+            await loadJobs();
+            setSelectedJob(null);
+            setSelectedJobItems([]);
+            alert(res.data.message || 'Temizlendi');
+        } catch (e) {
+            console.error(e);
+            alert('Temizleme hatası');
+        }
+    };
+
     const handleSaveSettings = async () => {
         setSavingSettings(true);
         try {
@@ -289,6 +309,7 @@ function SyncCenter({ suppliers = [] }) {
                         ))}
                     </select>
                     <button className="btn" onClick={() => loadJobs()} style={{ padding: '6px 10px' }}>Yenile</button>
+                    <button className="btn" onClick={handleClearJobs} style={{ padding: '6px 10px', background: '#8b1a1a', color: 'white' }}>Tümünü Temizle</button>
                 </div>
 
                 {loadingJobs ? (

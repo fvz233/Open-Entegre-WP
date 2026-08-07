@@ -313,6 +313,18 @@ class SyncJob
         return true;
     }
 
+    public function delete_all()
+    {
+        global $wpdb;
+        if (class_exists('\MultiSync\Models\SyncJobItem')) {
+            $wpdb->query(
+                "DELETE FROM {$wpdb->prefix}multi_sync_job_items
+                 WHERE job_id IN (SELECT id FROM {$this->table_name} WHERE status <> 'running')"
+            );
+        }
+        return $wpdb->query("DELETE FROM {$this->table_name} WHERE status <> 'running'");
+    }
+
     private function decode_job_row($row)
     {
         if (!is_array($row)) {

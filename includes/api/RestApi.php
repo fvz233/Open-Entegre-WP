@@ -176,6 +176,12 @@ class RestApi
             'permission_callback' => array($this, 'check_permission')
         ));
 
+        register_rest_route($namespace, '/jobs', array(
+            'methods' => 'DELETE',
+            'callback' => array($this, 'delete_all_jobs'),
+            'permission_callback' => array($this, 'check_permission')
+        ));
+
         register_rest_route($namespace, '/jobs/(?P<id>\\d+)/approve', array(
             'methods' => 'POST',
             'callback' => array($this, 'approve_job'),
@@ -1017,6 +1023,16 @@ class RestApi
             ));
         }
         return rest_ensure_response(array('success' => true));
+    }
+
+    public function delete_all_jobs()
+    {
+        $deleted = (new SyncJob())->delete_all();
+        return rest_ensure_response(array(
+            'success' => $deleted !== false,
+            'deleted' => (int) $deleted,
+            'message' => $deleted !== false ? 'Calismayan tum is kayitlari silindi.' : 'Is kayitlari silinemedi.',
+        ));
     }
 
     public function get_job_settings($request)

@@ -124,6 +124,7 @@ export default {
     approveJob: (id) => api.post(`/jobs/${id}/approve`),
     rejectJob: (id) => api.post(`/jobs/${id}/reject`),
     deleteJob: (id) => request('DELETE', `/jobs/${id}`),
+    clearJobs: () => request('DELETE', '/jobs'),
     getJobSettings: () => api.get('/jobs/settings'),
     saveJobSettings: (data) => api.post('/jobs/settings', data),
     getChanges: (params = {}) => api.get('/changes', { params }),
