@@ -299,6 +299,20 @@ class SyncJob
         ));
     }
 
+    public function delete($id)
+    {
+        $job = $this->get((int) $id);
+        if (!$job || $job['status'] === 'running') {
+            return false;
+        }
+        global $wpdb;
+        if (class_exists('\MultiSync\Models\SyncJobItem')) {
+            (new SyncJobItem())->delete_by_job((int) $id);
+        }
+        $wpdb->delete($this->table_name, array('id' => (int) $id), array('%d'));
+        return true;
+    }
+
     private function decode_job_row($row)
     {
         if (!is_array($row)) {

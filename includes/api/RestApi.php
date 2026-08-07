@@ -170,6 +170,12 @@ class RestApi
             'permission_callback' => array($this, 'check_permission')
         ));
 
+        register_rest_route($namespace, '/jobs/(?P<id>\\d+)', array(
+            'methods' => 'DELETE',
+            'callback' => array($this, 'delete_job'),
+            'permission_callback' => array($this, 'check_permission')
+        ));
+
         register_rest_route($namespace, '/jobs/(?P<id>\\d+)/approve', array(
             'methods' => 'POST',
             'callback' => array($this, 'approve_job'),
@@ -999,6 +1005,18 @@ class RestApi
             'success' => true,
             'job' => $result,
         ));
+    }
+
+    public function delete_job($request)
+    {
+        $deleted = (new SyncJob())->delete((int) $request->get_param('id'));
+        if (!$deleted) {
+            return rest_ensure_response(array(
+                'success' => false,
+                'message' => 'Is silinemedi. Calisan isler veya bulunamayan kayitlar silinemez.',
+            ));
+        }
+        return rest_ensure_response(array('success' => true));
     }
 
     public function get_job_settings($request)

@@ -146,4 +146,10 @@ class SyncJobItem
         $decoded = json_decode($value, true);
         return is_array($decoded) ? $decoded : array();
     }
+
+    public function delete_by_job($job_id)
+    {
+        global $wpdb;
+        return $wpdb->delete($this->table_name, array('job_id' => (int) $job_id), array('%d'));
+    }
 }

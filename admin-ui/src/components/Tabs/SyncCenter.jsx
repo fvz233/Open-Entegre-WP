@@ -169,6 +169,27 @@ function SyncCenter({ suppliers = [] }) {
         }
     };
 
+    const handleDeleteJob = async (jobId) => {
+        if (!confirm(`#${jobId} işi ve kayıtları silinsin mi?`)) {
+            return;
+        }
+        try {
+            const res = await api.deleteJob(jobId);
+            if (!res.data?.success) {
+                alert(res.data?.message || 'Silinemedi');
+                return;
+            }
+            await loadJobs();
+            if (selectedJob?.id === jobId) {
+                setSelectedJob(null);
+                setSelectedJobItems([]);
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Silme hatası');
+        }
+    };
+
     const handleSaveSettings = async () => {
         setSavingSettings(true);
         try {
@@ -233,6 +254,7 @@ function SyncCenter({ suppliers = [] }) {
                                     <td style={{ padding: '6px', display: 'flex', gap: '6px' }}>
                                         <button className="btn" onClick={() => handleApprove(job.id)} style={{ padding: '4px 8px', fontSize: '12px' }}>Onayla</button>
                                         <button className="btn" onClick={() => handleReject(job.id)} style={{ padding: '4px 8px', fontSize: '12px', background: '#d14343' }}>Reddet</button>
+                                        <button className="btn" onClick={() => handleDeleteJob(job.id)} style={{ padding: '4px 8px', fontSize: '12px', background: '#8b1a1a', color: 'white' }}>Sil</button>
                                         <button className="btn" onClick={() => loadJobDetail(job.id)} style={{ padding: '4px 8px', fontSize: '12px', background: '#6c7a89' }}>Detay</button>
                                     </td>
                                 </tr>
@@ -297,6 +319,7 @@ function SyncCenter({ suppliers = [] }) {
                                     <td style={{ padding: '6px' }}>{formatDate(job.created_at)}</td>
                                     <td style={{ padding: '6px', display: 'flex', gap: '6px' }}>
                                         <button className="btn" style={{ padding: '4px 8px', fontSize: '12px' }} onClick={() => loadJobDetail(job.id)}>Detay</button>
+                                        <button className="btn" style={{ padding: '4px 8px', fontSize: '12px', background: '#8b1a1a', color: 'white' }} onClick={() => handleDeleteJob(job.id)}>Sil</button>
                                         {job.status === 'waiting_approval' && (
                                             <>
                                                 <button className="btn" style={{ padding: '4px 8px', fontSize: '12px' }} onClick={() => handleApprove(job.id)}>Onayla</button>
