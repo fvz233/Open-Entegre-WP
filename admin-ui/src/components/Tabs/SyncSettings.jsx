@@ -197,10 +197,35 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
             const extra = unchanged ? `, ${unchanged} değişiklik yok (atlandı)` : '';
             const batchNote = result.batch_status === 'pending' ? ' (Ciceksepeti onay bekliyor)' : (result.batch_status === 'completed' ? ' (onaylandı)' : '');
             setFeedback({ type: 'success', message: `${result.sent || 0} ürün ${supplier.name || supplier.marketplace_key}'a gönderildi${detail}${extra}. Batch ID: ${batchId}${batchNote}` });
+            if (result.batch_status === 'pending' && batchId !== '-') {
+                pollBatchStatus(batchId);
+            }
         } catch (e) {
             setFeedback({ type: 'error', message: e.response?.data?.message || e.message || 'Ürün gönderimi başarısız.' });
         }
         setLoading(false);
+    };
+
+    const pollBatchStatus = async (batchId, attempt = 1) => {
+        try {
+            const res = await api.getPublishBatchStatus(supplier.id, batchId);
+            const status = String(res.data?.status || 'pending');
+            const msg = String(res.data?.message || '');
+            if (status === 'completed') {
+                setFeedback({ type: 'success', message: `Batch ${batchId}: Ciceksepeti onayladı. Ürünler yayında.` });
+                return;
+            }
+            if (status === 'failed' || status === 'timeout' || status === 'error') {
+                setFeedback({ type: 'error', message: `Batch ${batchId}: ${msg || status}` });
+                return;
+            }
+            setFeedback({ type: 'success', message: `Batch ${batchId}: Ciceksepeti onay bekliyor (kontrol #${attempt})${msg ? ' — ' + msg : ''}` });
+        } catch (e) {
+            setFeedback({ type: 'error', message: `Batch ${batchId} durum sorgusu hatası: ${e.response?.data?.message || e.message}` });
+        }
+        if (attempt < 20) {
+            setTimeout(() => pollBatchStatus(batchId, attempt + 1), 15000);
+        }
     };
 
     const loadMarketplaceDebug = async (opOverride = null, statusOverride = null) => {

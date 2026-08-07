@@ -86,6 +86,12 @@ class RestApi
             'permission_callback' => array($this, 'check_permission')
         ));
 
+        register_rest_route($namespace, '/products/publish-batch-status', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_publish_batch_status'),
+            'permission_callback' => array($this, 'check_permission')
+        ));
+
         register_rest_route($namespace, '/trendyol/category-mappings/(?P<supplier_id>\d+)', array(
             array('methods' => 'GET', 'callback' => array($this, 'get_trendyol_category_mappings'), 'permission_callback' => array($this, 'check_permission')),
             array('methods' => 'POST', 'callback' => array($this, 'save_trendyol_category_mapping'), 'permission_callback' => array($this, 'check_permission')),
@@ -511,6 +517,48 @@ class RestApi
             return new \WP_Error($result->get_error_code(), $result->get_error_message(), array('status' => 400, 'details' => $result->get_error_data()));
         }
         return rest_ensure_response(array('success' => true, 'result' => $result));
+    }
+
+    public function get_publish_batch_status($request)
+    {
+        $batch_id = sanitize_text_field((string) $request->get_param('batch_id'));
+        if ($batch_id === '') {
+            return new \WP_Error('multi_sync_batch_id_required', 'batch_id zorunludur.', array('status' => 400));
+        }
+
+        $stored = get_transient('multi_sync_cs_batch_status_' . $batch_id);
+        if (is_array($stored) && isset($stored['status'])) {
+            return rest_ensure_response(array(
+                'success' => true,
+                'batch_id' => $batch_id,
+                'status' => (string) $stored['status'],
+                'message' => isset($stored['message']) ? (string) $stored['message'] : '',
+                'checked_at' => isset($stored['checked_at']) ? (string) $stored['checked_at'] : '',
+                'source' => 'stored',
+            ));
+        }
+
+        $context = $this->marketplace_context((int) $request->get_param('supplier_id'));
+        if (is_wp_error($context)) {
+            return $context;
+        }
+        if (!is_callable(array($context['adapter'], 'get_batch_request_result'))) {
+            return new \WP_Error('multi_sync_batch_status_unsupported', $context['adapter']->get_label() . ' batch durum sorgusu desteklenmiyor.', array('status' => 400));
+        }
+        $data = $context['adapter']->get_batch_request_result($context['supplier'], $batch_id);
+        if (is_wp_error($data)) {
+            return new \WP_Error($data->get_error_code(), $data->get_error_message(), array('status' => 400));
+        }
+        $verdict = ProductPublisher::ciceksepeti_batch_verdict($data);
+
+        return rest_ensure_response(array(
+            'success' => true,
+            'batch_id' => $batch_id,
+            'status' => $verdict,
+            'message' => $verdict === 'failed' ? ProductPublisher::ciceksepeti_error_summary($data) : '',
+            'checked_at' => current_time('mysql'),
+            'source' => 'live',
+        ));
     }
 
     public function get_trendyol_category_mappings($request)

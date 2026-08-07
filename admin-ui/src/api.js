@@ -69,6 +69,7 @@ export default {
     previewOrders: (supplierId) => api.post('/sync/order-preview', { supplier_id: supplierId }),
     previewProductPublish: (supplierId) => api.post('/products/publish-preview', { supplier_id: supplierId }),
     publishProducts: (supplierId, selectedItems = [], productOverrides = {}) => api.post('/products/publish', { supplier_id: supplierId, selected_items: selectedItems, product_overrides: productOverrides }),
+    getPublishBatchStatus: (supplierId, batchId) => api.get('/products/publish-batch-status', { params: { supplier_id: supplierId, batch_id: batchId } }),
     getMarketplaceCategoryMappings: (supplierId) => api.get(`/marketplaces/category-mappings/${supplierId}`, { params: { _: Date.now() } }),
     searchMarketplaceCategories: (supplierId, query) => api.get(`/marketplaces/categories/${supplierId}`, { params: { query } }),
     getMarketplaceCategoryAttributes: (supplierId, categoryId) => api.get(`/marketplaces/categories/${supplierId}/${encodeURIComponent(categoryId)}/attributes`),

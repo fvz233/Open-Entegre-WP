@@ -241,7 +241,7 @@ class ProductPublisher
         return self::ciceksepeti_batch_verdict($data);
     }
 
-    private static function ciceksepeti_batch_verdict($data)
+    public static function ciceksepeti_batch_verdict($data)
     {
         $json = strtolower((string) json_encode($data));
         if (strpos($json, 'failed') !== false) {
@@ -289,6 +289,7 @@ class ProductPublisher
 
         $data = $adapter->get_batch_request_result($supplier, $batch_id);
         if (is_wp_error($data)) {
+            self::store_batch_status($batch_id, 'error', 'Ciceksepeti batch ' . $batch_id . ' durumu okunamadi: ' . $data->get_error_message());
             self::schedule_batch_poll((int) $supplier_id, $batch_id, $product_ids);
             return;
         }
@@ -320,6 +321,7 @@ class ProductPublisher
             return;
         }
 
+        self::store_batch_status($batch_id, 'pending', 'Ciceksepeti batch ' . $batch_id . ' hala isleniyor (kontrol #' . $attempts . ').');
         self::schedule_batch_poll((int) $supplier_id, $batch_id, $product_ids);
     }
 
@@ -336,7 +338,7 @@ class ProductPublisher
         );
     }
 
-    private static function ciceksepeti_error_summary($data)
+    public static function ciceksepeti_error_summary($data)
     {
         if (is_wp_error($data)) {
             return $data->get_error_message();

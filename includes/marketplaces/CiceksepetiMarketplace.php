@@ -50,6 +50,9 @@ class CiceksepetiMarketplace extends BaseMarketplace
         $request_signature = $this->build_request_signature($method, $url, $body);
         $signature_hash = md5($request_signature);
 
+        // ponytail: batch-status polllari canli yanit ister; cache'lenen "pending" cevabi pollu kilitler ve debug kaydi birakmaz.
+        $skip_same_request_cache = (strtoupper((string) $method) === 'GET' && strpos((string) $url, '/batch-status/') !== false);
+
         $prefix = 'multi_sync_cs_req_' . $supplier_id . '_';
         $last_any_key = $prefix . 'last_any';
         $last_same_key = $prefix . 'same_' . $signature_hash;
@@ -66,7 +69,7 @@ class CiceksepetiMarketplace extends BaseMarketplace
 
         $now = time();
         $last_same = (int) get_transient($last_same_key);
-        if ($last_same > 0) {
+        if (!$skip_same_request_cache && $last_same > 0) {
             $elapsed = $now - $last_same;
             if ($elapsed < self::SAME_REQUEST_COOLDOWN_SECONDS) {
                 $cached_response = get_transient($cached_response_key);
@@ -93,10 +96,12 @@ class CiceksepetiMarketplace extends BaseMarketplace
 
         $request_time = time();
         set_transient($last_any_key, $request_time, self::SAME_REQUEST_COOLDOWN_SECONDS);
-        set_transient($last_same_key, $request_time, self::SAME_REQUEST_COOLDOWN_SECONDS);
+        if (!$skip_same_request_cache) {
+            set_transient($last_same_key, $request_time, self::SAME_REQUEST_COOLDOWN_SECONDS);
 
-        if (is_array($response) || $response instanceof \WP_Error) {
-            set_transient($cached_response_key, $response, self::SAME_REQUEST_COOLDOWN_SECONDS);
+            if (is_array($response) || $response instanceof \WP_Error) {
+                set_transient($cached_response_key, $response, self::SAME_REQUEST_COOLDOWN_SECONDS);
+            }
         }
 
         return $response;
