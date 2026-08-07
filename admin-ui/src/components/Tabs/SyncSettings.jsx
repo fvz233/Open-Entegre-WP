@@ -530,11 +530,19 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
                                     disabled={debugLoading}
                                     style={{ padding: '4px 10px', fontSize: '12px' }}
                                 >
-                                    {debugLoading ? 'Yükleniyor...' : 'Debug Geçmişini Getir'}
+                                   {debugLoading ? 'Yükleniyor...' : 'Debug Geçmişini Getir'}
+                               </button>
+                               <button
+                                   className="btn"
+                                    onClick={() => loadMarketplaceDebug('product', '')}
+                                    disabled={debugLoading}
+                                    style={{ padding: '4px 10px', fontSize: '12px', background: '#f27a1a', color: 'white' }}
+                                >
+                                    Ürün Gönderimi
                                 </button>
                                 <button
                                     className="btn"
-                                    onClick={() => loadMarketplaceDebug('products', '400')}
+                                    onClick={() => loadMarketplaceDebug('product', '400')}
                                     disabled={debugLoading}
                                     style={{ padding: '4px 10px', fontSize: '12px', background: '#c0392b', color: 'white' }}
                                 >

@@ -393,7 +393,25 @@ abstract class BaseMarketplace implements MarketplaceInterface
 
         // Error responses and batch-status polls are always stored so 4xx/5xx bodies and async batch results stay debuggable even with debug logging off.
         $is_batch_status = isset($entry['operation']) && strpos((string) $entry['operation'], 'batch-status') !== false;
-        if (!$is_error && !$is_batch_status && !multi_sync_debug_enabled()) {
+        $is_product_send = false;
+        if (isset($entry['request']) && is_array($entry['request']) && !empty($entry['request']['method'])) {
+            $send_method = strtoupper((string) $entry['request']['method']);
+            if (in_array($send_method, array('POST', 'PUT', 'PATCH'), true)) {
+                $send_path = strtolower((string) parse_url((string) ($entry['request']['url'] ?? ''), PHP_URL_PATH));
+                if ($send_path !== '' && (
+                    strpos($send_path, '/products') !== false
+                    || strpos($send_path, 'product-create') !== false
+                    || strpos($send_path, '/listings') !== false
+                    || strpos($send_path, 'products/import') !== false
+                    || strpos($send_path, 'price-and-inventory') !== false
+                    || strpos($send_path, 'price-and-stock') !== false
+                )) {
+                    $is_product_send = true;
+                }
+            }
+        }
+        // Product/price send requests (POST/PUT/PATCH to product creation/inventory endpoints) are always stored so gönders are debuggable even with debug logging off.
+        if (!$is_error && !$is_batch_status && !$is_product_send && !multi_sync_debug_enabled()) {
             return;
         }
 

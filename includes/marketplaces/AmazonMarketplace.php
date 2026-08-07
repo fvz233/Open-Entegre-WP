@@ -1319,6 +1319,7 @@ class AmazonMarketplace extends BaseMarketplace
                 'timestamp' => current_time('mysql'),
                 'supplier_id' => $this->get_supplier_row_id($supplier),
                 'marketplace_key' => $this->get_key(),
+                'operation' => $method . ' ' . (string) parse_url($url, PHP_URL_PATH),
                 'request' => array(
                     'method' => $method,
                     'url' => $url,

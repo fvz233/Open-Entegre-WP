@@ -546,8 +546,8 @@ class CiceksepetiMarketplace extends BaseMarketplace
                 if ($input === '' && !empty($definition['allow_custom'])) $input = $color;
             }
             $known = false;
-            foreach ((array) ($definition['values'] ?? array()) as $option) if ((string) ($option['id'] ?? '') === $input) { $attributes[] = array('attributeId' => $id, 'attributeValueId' => $input); $known = true; break; }
-            if (!$known && $input !== '' && !empty($definition['allow_custom'])) $attributes[] = array('attributeId' => $id, 'attributeValue' => sanitize_text_field($input));
+            foreach ((array) ($definition['values'] ?? array()) as $option) if ((string) ($option['id'] ?? '') === $input) { $attributes[] = array('Id' => (int) $id, 'ValueId' => (int) $input); $known = true; break; }
+            if (!$known && $input !== '' && !empty($definition['allow_custom'])) $attributes[] = array('Id' => (int) $id, 'TextLength' => 0);
             elseif (!$known && (!empty($definition['required']) || ($parent && $is_color))) $missing[] = array('key' => 'attribute_' . $id, 'label' => (string) ($definition['name'] ?? $id), 'type' => !empty($definition['values']) ? 'select' : 'text', 'options' => (array) ($definition['values'] ?? array()), 'suggested_value' => $is_color ? $color : '');
         }
         $price = $this->build_price_inventory_item_from_product($product, true, true, $category_mapping['commission_rate'] ?? null);
@@ -557,7 +557,7 @@ class CiceksepetiMarketplace extends BaseMarketplace
         if ($missing) return new \WP_Error('multi_sync_ciceksepeti_product_incomplete', 'Eksik Ciceksepeti bilgilerini doldurun.', array('fields' => $missing));
         $source = $parent ?: $product;
         $description = $source->get_description() ?: $source->get_short_description() ?: $source->get_name();
-        return array('productName' => $this->product_export_name($product, $parent), 'mainProductCode' => $model, 'stockCode' => $sku, 'categoryId' => (int) $category, 'barcode' => $barcode, 'isActive' => true, 'salesPrice' => $price['salesPrice'], 'listPrice' => $price['listPrice'], 'stockQuantity' => $price['stockQuantity'], 'vatRate' => (int) $vat, 'description' => mb_substr($description, 0, 20000), 'images' => $images, 'attributes' => $attributes, 'deliveryType' => 2, 'deliveryMessageType' => 5);
+        return array('productName' => $this->product_export_name($product, $parent), 'mainProductCode' => $model, 'stockCode' => $sku, 'categoryId' => (int) $category, 'barcode' => $barcode, 'isActive' => true, 'salesPrice' => $price['salesPrice'], 'listPrice' => $price['listPrice'], 'stockQuantity' => $price['stockQuantity'], 'vatRate' => (int) $vat, 'description' => mb_substr($description, 0, 20000), 'images' => $images, 'Attributes' => $attributes, 'deliveryType' => 2, 'deliveryMessageType' => 5);
     }
 
     public function push_products($supplier, $items)

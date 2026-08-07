@@ -173,11 +173,36 @@ class HepsiburadaMarketplace extends BaseMarketplace
         $body = $this->build_multipart_body($items, $boundary);
         $headers = $this->build_default_headers($supplier);
         $headers['Content-Type'] = 'multipart/form-data; boundary=' . $boundary;
-        $response = wp_remote_request($url, array('method' => 'POST', 'timeout' => 60, 'headers' => $headers, 'body' => $body));
-        if (is_wp_error($response)) return $response;
+        $args = array('method' => 'POST', 'timeout' => 60, 'headers' => $headers, 'body' => $body);
+
+        $debug_entry = array(
+            'timestamp' => current_time('mysql'),
+            'supplier_id' => $this->get_supplier_row_id($supplier),
+            'marketplace_key' => is_callable(array($this, 'get_key')) ? $this->get_key() : '',
+            'operation' => 'POST ' . (string) parse_url($url, PHP_URL_PATH),
+            'request' => array(
+                'method' => 'POST',
+                'url' => $url,
+                'headers' => $this->sanitize_headers_for_debug($headers),
+                'body' => $this->truncate_debug_body($body),
+            ),
+            'response' => array(),
+        );
+
+        $response = wp_remote_request($url, $args);
+        if (is_wp_error($response)) {
+            $debug_entry['response'] = array('error' => $response->get_error_message());
+            $this->store_http_debug($supplier, $debug_entry);
+            return $response;
+        }
         $code = (int) wp_remote_retrieve_response_code($response);
         $raw = wp_remote_retrieve_body($response);
         $data = json_decode($raw, true);
+        $debug_entry['response'] = array(
+            'status_code' => $code,
+            'body' => $this->truncate_debug_body($raw),
+        );
+        $this->store_http_debug($supplier, $debug_entry);
         if ($code >= 400 || !is_array($data) || (isset($data['success']) && !$data['success'])) return new \WP_Error('multi_sync_hepsiburada_upload_error', sprintf('Hepsiburada urun gonderimi basarisiz oldu (%d): %s', $code, $raw), array('code' => $code, 'body' => $raw));
         if (empty($data['trackingId']) && !empty($data['data']['trackingId'])) $data['trackingId'] = $data['data']['trackingId'];
         if (empty($data['trackingId'])) return new \WP_Error('multi_sync_hepsiburada_tracking_missing', 'Hepsiburada yanitinda trackingId bulunamadi.', array('body' => $raw));
