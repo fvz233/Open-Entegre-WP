@@ -551,6 +551,11 @@ class RestApi
         }
         $verdict = ProductPublisher::ciceksepeti_batch_verdict($data);
 
+        $batch_items = array();
+        if (is_array($data)) {
+            $batch_items = $this->extract_batch_items($data);
+        }
+
         return rest_ensure_response(array(
             'success' => true,
             'batch_id' => $batch_id,
@@ -558,7 +563,41 @@ class RestApi
             'message' => $verdict === 'failed' ? ProductPublisher::ciceksepeti_error_summary($data) : '',
             'checked_at' => current_time('mysql'),
             'source' => 'live',
+            'batch_items' => $batch_items,
         ));
+    }
+
+    private function extract_batch_items($data)
+    {
+        $items = array();
+        if (!is_array($data)) {
+            return $items;
+        }
+
+        $candidates = array('items', 'content', 'data', 'result', 'results', 'products', 'skus', 'batchItems', 'failedItemList', 'completedItemList');
+        foreach ($candidates as $key) {
+            if (isset($data[$key]) && is_array($data[$key])) {
+                foreach ($data[$key] as $item) {
+                    if (is_array($item)) {
+                        $items[] = $this->sanitize_raw_debug_value($item);
+                    }
+                }
+                if (!empty($items)) {
+                    return $items;
+                }
+            }
+        }
+
+        foreach ($data as $value) {
+            if (is_array($value) && !isset($value[0])) {
+                $nested = $this->extract_batch_items($value);
+                if (!empty($nested)) {
+                    return $nested;
+                }
+            }
+        }
+
+        return $items;
     }
 
     public function get_trendyol_category_mappings($request)

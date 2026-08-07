@@ -238,7 +238,10 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
         setBatchStatusResult(null);
         try {
             const res = await api.getPublishBatchStatus(supplier.id, batchId);
-            setBatchStatusResult({ status: String(res.data?.status || 'unknown'), message: String(res.data?.message || ''), source: String(res.data?.source || ''), checked_at: String(res.data?.checked_at || '') });
+           setBatchStatusResult({ status: String(res.data?.status || 'unknown'), message: String(res.data?.message || ''), source: String(res.data?.source || ''), checked_at: String(res.data?.checked_at || '') });
+            if (Array.isArray(res.data?.batch_items)) {
+                setBatchStatusResult(r => ({ ...r, batch_items: res.data.batch_items }));
+            }
         } catch (e) {
             setBatchStatusResult({ status: 'error', message: e.response?.data?.message || e.message || 'Durum sorgusu başarısız.' });
         }
@@ -409,7 +412,7 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => { setPublishPopup(false); }}>
                     <div style={{ background: '#fff', borderRadius: '8px', padding: '20px', maxWidth: '680px', width: '90%', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                            <strong>Gönderim HTTP Detayı</strong>
+                            <strong>Gönderim Detayı</strong>
                             <button className="btn" onClick={() => setPublishPopup(false)} style={{ padding: '2px 10px', fontSize: '14px' }}>✕</button>
                         </div>
                         <div style={{ fontSize: '12px', color: '#4a5568', marginBottom: '8px' }}>
@@ -423,34 +426,43 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
                             <strong style={{ fontSize: '12px' }}>Response</strong>
                             <textarea readOnly value={formatDebugValue(publishDebugEntry.response)} style={{ width: '100%', height: '200px', marginTop: '4px', fontFamily: 'monospace', fontSize: '12px', lineHeight: 1.4, resize: 'vertical', boxSizing: 'border-box' }} />
                         </div>
+                        <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
+                                <strong style={{ fontSize: '13px' }}>Batch Durum Kontrolü</strong>
+                                <input
+                                    value={batchIdInput}
+                                    onChange={e => setBatchIdInput(e.target.value)}
+                                    placeholder="Batch ID"
+                                    style={{ minWidth: '180px', fontSize: '12px', padding: '4px 8px' }}
+                                />
+                                <button
+                                    className="btn"
+                                    onClick={checkBatchStatus}
+                                    disabled={batchChecking || !batchIdInput.trim()}
+                                    style={{ padding: '4px 12px', fontSize: '12px', background: '#2f6fed', color: 'white' }}
+                                >
+                                    {batchChecking ? 'Kontrol ediliyor...' : 'Batch Kontrol Et'}
+                                </button>
+                                {batchStatusResult && (
+                                    <span style={{ fontSize: '12px', color: batchStatusResult.status === 'completed' ? '#50705a' : (batchStatusResult.status === 'failed' || batchStatusResult.status === 'error' ? '#b32d2e' : '#cc8800') }}>
+                                        <strong>{batchStatusResult.status}</strong>
+                                        {batchStatusResult.checked_at ? ` (${batchStatusResult.checked_at})` : ''}
+                                    </span>
+                                )}
+                            </div>
+                            {batchStatusResult && batchStatusResult.message && (
+                                <textarea readOnly value={batchStatusResult.message} style={{ width: '100%', height: '60px', fontFamily: 'monospace', fontSize: '12px', lineHeight: 1.4, resize: 'vertical', boxSizing: 'border-box', marginBottom: '8px' }} />
+                            )}
+                            {batchStatusResult && Array.isArray(batchStatusResult.batch_items) && batchStatusResult.batch_items.length > 0 && (
+                                <div>
+                                    <strong style={{ fontSize: '12px' }}>Ürün Listesi ({batchStatusResult.batch_items.length})</strong>
+                                    <textarea readOnly value={formatDebugValue(batchStatusResult.batch_items)} style={{ width: '100%', height: '220px', marginTop: '4px', fontFamily: 'monospace', fontSize: '12px', lineHeight: 1.4, resize: 'vertical', boxSizing: 'border-box' }} />
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
-
-            <div style={{ marginBottom: '12px', padding: '10px', border: '1px solid #d6dbe3', borderRadius: '6px', background: '#f8fafc', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <strong style={{ fontSize: '13px' }}>Batch Durum Kontrolü:</strong>
-                <input
-                    value={batchIdInput}
-                    onChange={e => setBatchIdInput(e.target.value)}
-                    placeholder="Batch ID girin"
-                    style={{ minWidth: '200px', fontSize: '12px', padding: '4px 8px' }}
-                />
-                <button
-                    className="btn"
-                    onClick={checkBatchStatus}
-                    disabled={batchChecking || !batchIdInput.trim()}
-                    style={{ padding: '4px 12px', fontSize: '12px', background: '#2f6fed', color: 'white' }}
-                >
-                    {batchChecking ? 'Kontrol ediliyor...' : 'Batch Durumunu Kontrol Et'}
-                </button>
-                {batchStatusResult && (
-                    <span style={{ fontSize: '12px', color: batchStatusResult.status === 'completed' ? '#50705a' : (batchStatusResult.status === 'failed' || batchStatusResult.status === 'error' ? '#b32d2e' : '#cc8800') }}>
-                        <strong>{batchStatusResult.status}</strong>
-                        {batchStatusResult.message ? ` — ${batchStatusResult.message}` : ''}
-                        {batchStatusResult.checked_at ? ` (${batchStatusResult.checked_at})` : ''}
-                    </span>
-                )}
-            </div>
 
             {feedback && (
                 <div className={`multi-sync-feedback ${feedback.type}`} role={feedback.type === 'error' ? 'alert' : 'status'} aria-live="polite">
