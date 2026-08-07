@@ -545,7 +545,22 @@ class CiceksepetiMarketplace extends BaseMarketplace
     public function push_products($supplier, $items)
     {
         $response = $this->request_json('POST', self::API_BASE . '/Products', $supplier, array('products' => array_values($items)));
-        return is_wp_error($response) ? $response : $response['data'];
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        $normalized = is_array($response['data']) ? $response['data'] : array(
+            'result' => $response['data'],
+        );
+
+        $batch_id = $this->extract_batch_id($response['data']);
+        if ($batch_id !== '') {
+            $normalized['batchId'] = $batch_id;
+            $normalized['batchRequestId'] = $batch_id;
+            $normalized['batchRequestIds'] = array($batch_id);
+        }
+
+        return $normalized;
     }
 
     private function ciceksepeti_variation_color($product, $parent)

@@ -183,7 +183,6 @@ class ProductPublisher
             }
             $uploaded = count($create_payloads);
             $response = $result;
-            $this->mark_published($create_ids, $marketplace_key);
         }
 
         if (!empty($update_payloads)) {
@@ -198,6 +197,25 @@ class ProductPublisher
             $this->mark_published($update_ids, $marketplace_key);
         }
 
+        $batch_status = '';
+        if ($marketplace_key === 'ciceksepeti' && !empty($create_payloads)
+            && is_callable(array($adapter, 'get_batch_request_result')) && is_array($response)) {
+            $batch_id = trim((string) ($response['batchId'] ?? $response['batchRequestId'] ?? ''));
+            if ($batch_id !== '') {
+                $batch_status = $this->confirm_batch_status($adapter, $supplier, $batch_id);
+                if ($batch_status === 'completed') {
+                    $this->mark_published($create_ids, $marketplace_key);
+                } elseif ($batch_status === 'failed') {
+                    $this->unmark_published($create_ids, $marketplace_key);
+                    return new \WP_Error(
+                        'multi_sync_ciceksepeti_batch_failed',
+                        'Ciceksepeti islem kuyrugu urunleri reddetti (batch ' . $batch_id . ').',
+                        array('batch_id' => $batch_id)
+                    );
+                }
+            }
+        }
+
         return array(
             'sent' => $uploaded + $updated,
             'uploaded' => $uploaded,
@@ -205,7 +223,42 @@ class ProductPublisher
             'unchanged' => $unchanged,
             'skipped' => $skipped,
             'response' => $response,
+            'batch_status' => $batch_status,
         );
+    }
+
+    private function confirm_batch_status($adapter, $supplier, $batch_id)
+    {
+        // ponytail: synchronous poll budget ~25s; batches usually complete within seconds. Add async polling when batches regularly exceed this.
+        $deadline = microtime(true) + 25;
+        $attempt = 0;
+        while (microtime(true) < $deadline && $attempt < 5) {
+            if ($attempt > 0) {
+                sleep(3);
+            }
+            $attempt++;
+            $data = $adapter->get_batch_request_result($supplier, $batch_id);
+            if (is_wp_error($data)) {
+                return 'pending';
+            }
+            $verdict = $this->ciceksepeti_batch_verdict($data);
+            if ($verdict === 'completed' || $verdict === 'failed') {
+                return $verdict;
+            }
+        }
+        return 'pending';
+    }
+
+    private function ciceksepeti_batch_verdict($data)
+    {
+        $json = strtolower((string) json_encode($data));
+        if (strpos($json, 'failed') !== false) {
+            return 'failed';
+        }
+        if (strpos($json, 'completed') !== false || strpos($json, 'success') !== false || strpos($json, 'succeeded') !== false) {
+            return 'completed';
+        }
+        return 'pending';
     }
 
     private function is_published($product, $context, $catalog_products = array())
@@ -363,6 +416,9 @@ class ProductPublisher
         }
         $flag = trim((string) $product->get_meta('_multi_sync_published_' . $key, true));
         if ($flag !== '') {
+            if ($key === 'ciceksepeti' && strpos($flag, 'confirmed:') !== 0) {
+                return false;
+            }
             return true;
         }
         $marketplace = function_exists('sanitize_key') ? sanitize_key((string) $product->get_meta('_multi_sync_marketplace_key', true)) : strtolower(trim((string) $product->get_meta('_multi_sync_marketplace_key', true)));
@@ -390,7 +446,25 @@ class ProductPublisher
             }
             $product = wc_get_product($product_id);
             if ($product && is_callable(array($product, 'update_meta_data')) && is_callable(array($product, 'save'))) {
-                $product->update_meta_data('_multi_sync_published_' . $key, $stamp);
+                $product->update_meta_data('_multi_sync_published_' . $key, ($key === 'ciceksepeti' ? 'confirmed:' : '') . $stamp);
+                $product->save();
+            }
+        }
+    }
+
+    private function unmark_published($product_ids, $marketplace_key)
+    {
+        $key = (string) $marketplace_key;
+        if ($key === '') {
+            return;
+        }
+        foreach (array_map('absint', (array) $product_ids) as $product_id) {
+            if ($product_id <= 0) {
+                continue;
+            }
+            $product = wc_get_product($product_id);
+            if ($product && is_callable(array($product, 'delete_meta_data')) && is_callable(array($product, 'save'))) {
+                $product->delete_meta_data('_multi_sync_published_' . $key);
                 $product->save();
             }
         }
