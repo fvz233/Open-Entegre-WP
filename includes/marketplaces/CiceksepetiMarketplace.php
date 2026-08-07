@@ -70,7 +70,7 @@ class CiceksepetiMarketplace extends BaseMarketplace
             $elapsed = $now - $last_same;
             if ($elapsed < self::SAME_REQUEST_COOLDOWN_SECONDS) {
                 $cached_response = get_transient($cached_response_key);
-                if (is_array($cached_response)) {
+                if (is_array($cached_response) || $cached_response instanceof \WP_Error) {
                     if (function_exists('multi_sync_debug_log')) {
                         multi_sync_debug_log(
                             'Ciceksepeti request throttle: same request reused from cache. Supplier: ' . $supplier_id
@@ -95,11 +95,24 @@ class CiceksepetiMarketplace extends BaseMarketplace
         set_transient($last_any_key, $request_time, self::SAME_REQUEST_COOLDOWN_SECONDS);
         set_transient($last_same_key, $request_time, self::SAME_REQUEST_COOLDOWN_SECONDS);
 
-        if (is_array($response)) {
+        if (is_array($response) || $response instanceof \WP_Error) {
             set_transient($cached_response_key, $response, self::SAME_REQUEST_COOLDOWN_SECONDS);
         }
 
         return $response;
+    }
+
+    public function clear_request_cache($supplier)
+    {
+        $supplier_id = (int) $this->get_supplier_row_id($supplier);
+        if ($supplier_id <= 0) {
+            return;
+        }
+        global $wpdb;
+        $wpdb->query($wpdb->prepare(
+            "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
+            '_transient_multi_sync_cs_req_' . $supplier_id . '_%'
+        ));
     }
 
     public function fetch_products($supplier, $params = array())

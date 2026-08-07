@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Open Entegre
  * Description: WooCommerce icin birden fazla dis pazar yerine baglanabilen esnek senkronizasyon eklentisi.
- * Version: 1.0.57
+ * Version: 1.0.58
  * Author: Fevzi Demirtaş
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -60,7 +60,7 @@ function multi_sync_redact_debug_value($value, $key = '')
     return $value;
 }
 
-define('MULTI_SYNC_VERSION', '1.0.57');
+define('MULTI_SYNC_VERSION', '1.0.58');
 define('MULTI_SYNC_SCHEMA_VERSION', '20260802-2');
 define('MULTI_SYNC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MULTI_SYNC_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -262,6 +262,35 @@ function multi_sync_deactivate()
         \MultiSync\Sync\QuestionSync::clear_all_schedules();
     } else {
         wp_clear_scheduled_hook('multi_sync_questions_cleanup_event');
+    }
+
+    wp_clear_scheduled_hook('multi_sync_ciceksepeti_batch_poll');
+}
+
+function multi_sync_show_ciceksepeti_batch_errors()
+{
+    if (!current_user_can('manage_woocommerce') || !function_exists('get_transient')) {
+        return;
+    }
+    global $wpdb;
+    $rows = $wpdb->get_results($wpdb->prepare(
+        "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s",
+        '_transient_multi_sync_cs_batch_status_%'
+    ));
+    $shown = 0;
+    foreach ((array) $rows as $row) {
+        if ($shown >= 3) {
+            break;
+        }
+        $value = get_transient(substr((string) $row->option_name, strlen('_transient_')));
+        if (!is_array($value) || (string) ($value['status'] ?? '') !== 'failed') {
+            continue;
+        }
+        if (empty($value['checked_at']) || strtotime((string) $value['checked_at']) < time() - 2 * DAY_IN_SECONDS) {
+            continue;
+        }
+        $shown++;
+        echo '<div class="notice notice-error"><p><strong>Multi Sync:</strong> ' . esc_html((string) ($value['message'] ?? 'Ciceksepeti batch hatasi.')) . '</p></div>';
     }
 }
 
@@ -649,6 +678,8 @@ add_action('rest_api_init', function () {
 });
 
 add_action('plugins_loaded', 'multi_sync_boot_schedulers', 20);
+add_action('multi_sync_ciceksepeti_batch_poll', array('MultiSync\Sync\ProductPublisher', 'ciceksepeti_batch_poll_cron'), 10, 3);
+add_action('admin_notices', 'multi_sync_show_ciceksepeti_batch_errors');
 function multi_sync_boot_schedulers()
 {
     if (class_exists('\MultiSync\Sync\StockScheduler')) {

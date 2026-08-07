@@ -207,11 +207,16 @@ class ProductPublisher
                     $this->mark_published($create_ids, $marketplace_key);
                 } elseif ($batch_status === 'failed') {
                     $this->unmark_published($create_ids, $marketplace_key);
+                    if (is_callable(array($adapter, 'clear_request_cache'))) {
+                        $adapter->clear_request_cache($supplier);
+                    }
                     return new \WP_Error(
                         'multi_sync_ciceksepeti_batch_failed',
                         'Ciceksepeti islem kuyrugu urunleri reddetti (batch ' . $batch_id . ').',
                         array('batch_id' => $batch_id)
                     );
+                } elseif ($batch_status === 'pending') {
+                    self::schedule_batch_poll((int) $supplier_id, $batch_id, $create_ids);
                 }
             }
         }
@@ -229,27 +234,14 @@ class ProductPublisher
 
     private function confirm_batch_status($adapter, $supplier, $batch_id)
     {
-        // ponytail: synchronous poll budget ~25s; batches usually complete within seconds. Add async polling when batches regularly exceed this.
-        $deadline = microtime(true) + 25;
-        $attempt = 0;
-        while (microtime(true) < $deadline && $attempt < 5) {
-            if ($attempt > 0) {
-                sleep(3);
-            }
-            $attempt++;
-            $data = $adapter->get_batch_request_result($supplier, $batch_id);
-            if (is_wp_error($data)) {
-                return 'pending';
-            }
-            $verdict = $this->ciceksepeti_batch_verdict($data);
-            if ($verdict === 'completed' || $verdict === 'failed') {
-                return $verdict;
-            }
+        $data = $adapter->get_batch_request_result($supplier, $batch_id);
+        if (is_wp_error($data)) {
+            return 'pending';
         }
-        return 'pending';
+        return self::ciceksepeti_batch_verdict($data);
     }
 
-    private function ciceksepeti_batch_verdict($data)
+    private static function ciceksepeti_batch_verdict($data)
     {
         $json = strtolower((string) json_encode($data));
         if (strpos($json, 'failed') !== false) {
@@ -259,6 +251,101 @@ class ProductPublisher
             return 'completed';
         }
         return 'pending';
+    }
+
+    public static function schedule_batch_poll($supplier_id, $batch_id, $product_ids = array())
+    {
+        $args = array((int) $supplier_id, (string) $batch_id, array_map('absint', (array) $product_ids));
+        if (!wp_next_scheduled('multi_sync_ciceksepeti_batch_poll', $args)) {
+            wp_schedule_single_event(time() + 70, 'multi_sync_ciceksepeti_batch_poll', $args);
+        }
+    }
+
+    public static function ciceksepeti_batch_poll_cron($supplier_id, $batch_id, $product_ids = array())
+    {
+        $batch_id = (string) $batch_id;
+        if ($batch_id === '' || !function_exists('get_option')) {
+            return;
+        }
+
+        // ponytail: 60 attempts x ~70s = ~70 min window; batches taking longer stop here and stay unmarked for a manual re-check/re-send.
+        $attempt_key = 'multi_sync_cs_batch_poll_' . $batch_id;
+        $attempts = (int) get_option($attempt_key, 0) + 1;
+        if ($attempts > 60) {
+            delete_option($attempt_key);
+            self::store_batch_status($batch_id, 'timeout', 'Ciceksepeti batch ' . $batch_id . ' hala Pending; islemi tekrar deneyin.');
+            return;
+        }
+        update_option($attempt_key, $attempts, false);
+
+        $supplier = (new Supplier())->get((int) $supplier_id);
+        if (!$supplier) {
+            return;
+        }
+        $adapter = (new MarketplaceManager())->for_supplier($supplier);
+        if (!$adapter || !is_callable(array($adapter, 'get_batch_request_result'))) {
+            return;
+        }
+
+        $data = $adapter->get_batch_request_result($supplier, $batch_id);
+        if (is_wp_error($data)) {
+            self::schedule_batch_poll((int) $supplier_id, $batch_id, $product_ids);
+            return;
+        }
+
+        $verdict = self::ciceksepeti_batch_verdict($data);
+        if ($verdict === 'completed') {
+            delete_option($attempt_key);
+            $publisher = new self();
+            $publisher->mark_published(array_map('absint', (array) $product_ids), 'ciceksepeti');
+            self::store_batch_status($batch_id, 'completed', 'Ciceksepeti batch ' . $batch_id . ' tamamlandi.');
+            if (class_exists('\MultiSync\Models\SyncLog')) {
+                (new \MultiSync\Models\SyncLog())->log((int) $supplier_id, 'ciceksepeti_batch', 'success', 'Ciceksepeti batch tamamlandi: ' . $batch_id);
+            }
+            return;
+        }
+
+        if ($verdict === 'failed') {
+            delete_option($attempt_key);
+            $publisher = new self();
+            $publisher->unmark_published(array_map('absint', (array) $product_ids), 'ciceksepeti');
+            if (is_callable(array($adapter, 'clear_request_cache'))) {
+                $adapter->clear_request_cache($supplier);
+            }
+            $message = 'Ciceksepeti batch ' . $batch_id . ' hata ile bitti: ' . self::ciceksepeti_error_summary($data);
+            self::store_batch_status($batch_id, 'failed', $message);
+            if (class_exists('\MultiSync\Models\SyncLog')) {
+                (new \MultiSync\Models\SyncLog())->log((int) $supplier_id, 'ciceksepeti_batch', 'error', $message);
+            }
+            return;
+        }
+
+        self::schedule_batch_poll((int) $supplier_id, $batch_id, $product_ids);
+    }
+
+    private static function store_batch_status($batch_id, $status, $message)
+    {
+        set_transient(
+            'multi_sync_cs_batch_status_' . $batch_id,
+            array(
+                'status' => (string) $status,
+                'message' => (string) $message,
+                'checked_at' => current_time('mysql'),
+            ),
+            WEEK_IN_SECONDS
+        );
+    }
+
+    private static function ciceksepeti_error_summary($data)
+    {
+        if (is_wp_error($data)) {
+            return $data->get_error_message();
+        }
+        $json = json_encode($data);
+        if (!is_string($json) || strlen($json) > 2000) {
+            $json = substr((string) $json, 0, 2000);
+        }
+        return $json;
     }
 
     private function is_published($product, $context, $catalog_products = array())
