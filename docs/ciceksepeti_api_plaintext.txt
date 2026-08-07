@@ -1,0 +1,1121 @@
+ÇİÇEKSEPETİ MARKETPLACE API - SADE METİN REFERANSI
+Kaynak: Resmî ÇiçekSepeti API dokümantasyonu (ciceksepeti.dev)
+Kontrol tarihi: 07.08.2026
+
+NOT:
+Bu dosya resmî dokümanın birebir kopyası değildir. Entegrasyon geliştirmede hızlı kullanılabilmesi için endpoint, parametre ve kritik kurallar sadeleştirilerek özetlenmiştir.
+
+============================================================
+1. GENEL BİLGİLER
+============================================================
+
+PROD BASE URL
+https://apis.ciceksepeti.com/api/v1/
+
+TEST / SANDBOX BASE URL
+https://sandbox-apis.ciceksepeti.com/api/v1/
+
+TLS
+TLS 1.2 veya üzeri kullanılmalıdır.
+
+ZORUNLU HEADER'LAR
+x-api-key: <API_KEY>
+user-agent: <SATICI_ID> veya <SATICI_ID>-<ENTEGRATOR_ADI>
+
+Entegratör firma kullanılıyorsa:
+user-agent = "SatıcıId-EntegratörAdı"
+
+Kendi yazılımınız kullanılıyorsa:
+user-agent = "SatıcıId"
+
+Test ve prod API key'leri farklıdır.
+
+============================================================
+2. ÜRÜN YÖNETİMİ
+============================================================
+
+------------------------------------------------------------
+2.1 KATEGORİ LİSTESİ
+------------------------------------------------------------
+
+METHOD
+GET
+
+PATH
+/Categories
+
+PROD
+GET https://apis.ciceksepeti.com/api/v1/Categories
+
+TEST
+GET https://sandbox-apis.ciceksepeti.com/api/v1/Categories
+
+AMAÇ
+ÇiçekSepeti'nde tanımlı kategori ağacını döndürür.
+
+TEMEL RESPONSE ALANLARI
+id
+name
+parentCategoryId
+subCategories
+
+NOT
+Ürün açarken en alt kategori ID'si kullanılmalıdır.
+
+
+------------------------------------------------------------
+2.2 KATEGORİ ÖZELLİKLERİ
+------------------------------------------------------------
+
+METHOD
+GET
+
+PATH
+/Categories/{categoryId}/attributes
+
+PROD
+GET https://apis.ciceksepeti.com/api/v1/Categories/{categoryId}/attributes
+
+TEST
+GET https://sandbox-apis.ciceksepeti.com/api/v1/Categories/{categoryId}/attributes
+
+AMAÇ
+Kategoriye ait ürün özelliklerini, varyant özelliklerini ve
+kişiselleştirilebilir özellikleri getirir.
+
+ÖNEMLİ RESPONSE ALANLARI
+categoryId
+categoryName
+categoryAttributes[].attributeId
+categoryAttributes[].attributeName
+categoryAttributes[].required
+categoryAttributes[].varianter
+categoryAttributes[].type
+categoryAttributes[].attributeValues[].id
+categoryAttributes[].attributeValues[].name
+
+ATTRIBUTE TYPE'LARI
+
+Variant Özelliği
+- varianter = true
+- required = true ise zorunlu
+- Örn. renk, beden gibi varyant oluşturan alanlar
+
+Ürün Özelliği
+- varianter = false
+- required = true ise zorunlu
+
+Kişiselleştirilebilir Özellik
+- Sadece kişiye özel ürünlerde kullanılmalıdır
+- Müşteriden yazı/fotoğraf gibi ek veri istemek için kullanılır
+
+
+------------------------------------------------------------
+2.3 ÜRÜN YÜKLEME
+------------------------------------------------------------
+
+METHOD
+POST
+
+PATH
+/Products
+
+PROD
+POST https://apis.ciceksepeti.com/api/v1/Products
+
+TEST
+POST https://sandbox-apis.ciceksepeti.com/api/v1/Products
+
+CONTENT TYPE
+Body raw JSON
+
+RATE LIMIT
+Farklı request body ile yaklaşık 5 saniyede 1 istek.
+Tek istekte maksimum 1000 item.
+
+REQUEST ANA YAPI
+{
+  "products": [
+    {
+      ...
+    }
+  ]
+}
+
+TEMEL PARAMETRELER
+
+productName
+Tip: string
+Zorunlu: Evet
+Açıklama: Ürün adı
+
+mainProductCode
+Diğer adı: SupplierCode
+Tip: string
+Zorunlu: Evet
+Açıklama: Ana / tedarikçi ürün kodu
+
+stockCode
+Diğer adı: SupplierProductCode
+Tip: string
+Zorunlu: Evet
+Açıklama: Tedarikçi varyant kodu
+
+categoryId
+Tip: integer
+Zorunlu: Evet
+Kaynak: /Categories
+
+stockQuantity
+Tip: integer
+Zorunlu: Evet
+Açıklama: Stok adedi
+
+salesPrice
+Dokümanda bazı tablolarda TotalPrice olarak geçebilir.
+Tip: double
+Zorunlu: Evet
+Açıklama: Satış fiyatı
+
+listPrice
+Dokümanda bazı tablolarda FirstPrice olarak geçebilir.
+Tip: double
+Zorunlu: Hayır
+Açıklama: Üstü çizili fiyat
+Kural: Son 30 günün en düşük satış fiyatı mevzuatı dikkate alınmalıdır.
+Kural: listPrice ve salesPrice farkı %1'den az, %80'den fazla olmamalıdır.
+
+description
+Tip: string
+Zorunlu: Evet
+Düz metin minimum 30 karakter.
+HTML dahil maksimum 20000 karakter.
+
+images
+Tip: array/string URL
+Zorunlu: Evet
+Görsel minimum: 500x500
+Görsel maksimum: 2000x2000
+Dosya maksimum: 5 MB
+Önerilen oran: 10x11 katları, örn. 1300x1430
+
+deliveryType
+Tip: integer
+Zorunlu: Evet
+1 = Servis Aracı
+2 = Kargo
+3 = Kargo + Servis Aracı
+
+deliveryMessageType
+Tip: integer
+Zorunlu: Evet
+
+Bilinen değerler:
+1  = Çiçek / Servis
+4  = Hediye Kargo Aynı Gün
+5  = Hediye Kargo 1-3 İş Günü
+18 = Hediye Kargo 1-2 İş Günü
+19 = Hediye Kargo 1-10 İş Günü
+6  = Hediye Kargo 1-5 İş Günü
+7  = Hediye Kargo 1-7 İş Günü
+13 = Hediye Kargo 3-5 İş Günü
+
+barcode
+Tip: string
+Zorunlu: Hayır
+Minimum 3, maksimum 50 karakter.
+
+Attributes
+Kategori özelliği/varyant bilgisidir.
+
+Attributes[].Id
+Tip: integer
+Kaynak: category attributes endpoint'i
+
+Attributes[].ValueId
+Tip: integer
+Özelliğin seçilen değer ID'si
+
+Attributes[].TextLength
+Tip: integer
+Kişiselleştirilebilir ürünlerde karakter sınırı.
+Diğer özelliklerde 0 veya boş bırakılabilir.
+
+operatorContacts[]
+Ürün güvenliği / iktisadi işletmeci bilgileri.
+
+operatorContacts[].type
+1 = İmalatçı
+2 = İthalatçı
+3 = Yetkili Temsilci
+4 = İfa Hizmet Sağlayıcı
+
+operatorContacts[].name
+3-255 karakter
+
+operatorContacts[].address
+3-500 karakter
+
+operatorContacts[].email
+3-100 karakter
+
+safetyInfo.warningDescription
+Ürün güvenliği uyarıları.
+3-5000 karakter.
+
+safetyInfo.ceSymbolValueId
+1 = CE sembolü ürün görselinde bulunuyor
+2 = CE sembolü ürün görselinde bulunmuyor
+
+safetyInfo.origin
+Menşei
+2-30 karakter
+
+safetyInfo.frontImage
+Paket ön görseli
+500x500 - 2000x2000
+Maksimum 2 MB
+
+safetyInfo.backImage
+Paket arka görseli
+500x500 - 2000x2000
+Maksimum 2 MB
+
+İŞLEM MANTIĞI
+Başarılı HTTP isteği genellikle 200 döner.
+Ürün hemen tamamlanmış sayılmaz; işlem kuyruğa alınır.
+Response içinden batchId alınmalıdır.
+batchId ile /Products/batch-status/{batchId} sorgulanmalıdır.
+
+Pending = işlem sürüyor
+Failed = teknik hata / tekrar işlem gerekebilir
+
+Ürün açma işleminin tamamlanması 24 saate kadar sürebilir.
+
+
+------------------------------------------------------------
+2.4 ÜRÜN LİSTELEME
+------------------------------------------------------------
+
+METHOD
+GET
+
+PATH
+/Products
+
+PROD
+GET https://apis.ciceksepeti.com/api/v1/Products
+
+TEST
+GET https://sandbox-apis.ciceksepeti.com/api/v1/Products
+
+RATE LIMIT
+Aynı request body: yaklaşık 10 dakikada 1
+Farklı request body: yaklaşık 5 saniyede 1
+
+QUERY PARAMETRELERİ
+
+ProductStatus
+Tip: integer
+Opsiyonel
+
+Değerler:
+2 = Onay Bekleyen
+3 = Satışta
+4 = Reddedilen
+5 = Satışa Kapalı
+7 = Stoğu Tükenen
+8 = Kilitli
+
+PageSize
+Tip: integer
+Opsiyonel
+Maksimum: 60
+
+Page
+Tip: integer
+Opsiyonel
+1'den başlar.
+
+
+------------------------------------------------------------
+2.5 ÜRÜN BİLGİLERİNİ GÜNCELLEME
+------------------------------------------------------------
+
+METHOD
+PUT
+
+PATH
+/Products
+
+PROD
+PUT https://apis.ciceksepeti.com/api/v1/Products
+
+TEST
+PUT https://sandbox-apis.ciceksepeti.com/api/v1/Products
+
+CONTENT TYPE
+Raw JSON
+
+RATE LIMIT
+Farklı request body ile yaklaşık saniyede 1 istek.
+Tek istekte maksimum 200 item.
+
+TEMEL PARAMETRELER
+
+productName: string, zorunlu
+mainProductCode: string, zorunlu
+stockCode: string, zorunlu
+isActive: boolean, zorunlu
+description: string, zorunlu
+images: görsel URL'leri, zorunlu
+deliveryType: integer, zorunlu
+deliveryMessageType: integer, zorunlu
+
+isActive
+true  = varyant aktif
+false = varyant pasif
+
+ÖNEMLİ
+API ile ürünün kendisi tamamen pasife alınamaz; varyant pasife alınabilir.
+Ana ürünün pasife alınması için satıcı panelinden destek gerekebilir.
+
+Attribute bilgileri genel olarak API üzerinden güncellenemez.
+Yeni varyant oluşturmak gerekebilir.
+
+Barkod API üzerinden güncellenemez.
+
+İşlem batchId ile takip edilmelidir.
+Tamamlanma 24 saate kadar sürebilir.
+
+
+------------------------------------------------------------
+2.6 STOK VE FİYAT GÜNCELLEME
+------------------------------------------------------------
+
+METHOD
+PUT
+
+PATH
+/Products/price-and-stock
+
+PROD
+PUT https://apis.ciceksepeti.com/api/v1/Products/price-and-stock
+
+TEST
+PUT https://sandbox-apis.ciceksepeti.com/api/v1/Products/price-and-stock
+
+RATE LIMIT
+Farklı request body: yaklaşık saniyede 1
+Aynı request body: yaklaşık 30 dakikada 1
+Tek işlem: maksimum 200 item
+
+REQUEST ANA YAPI
+{
+  "items": [
+    {
+      "stockCode": "...",
+      "stockQuantity": 5,
+      "listPrice": 50.50,
+      "salesPrice": 49.99
+    }
+  ]
+}
+
+PARAMETRELER
+
+stockCode
+Tip: string
+Zorunlu: Evet
+
+stockQuantity
+Tip: integer
+Zorunlu: Hayır
+
+listPrice
+Tip: double
+Zorunlu: Hayır
+
+salesPrice
+Tip: double
+Zorunlu: Hayır
+
+KURALLAR
+stockQuantity veya salesPrice alanlarından en az biri gönderilmelidir.
+listPrice tek başına güncellenemez; salesPrice ile birlikte gönderilmelidir.
+listPrice ile salesPrice farkı %1'den az, %80'den fazla olmamalıdır.
+
+Bir fiyatı mevcut satış fiyatının %50'sinden daha aşağıya tek adımda indirmek
+hata oluşturabilir; kademeli güncelleme gerekebilir.
+
+İşlem asenkrondur.
+Response batchId ile kontrol edilmelidir.
+Tamamlanma 4 saate kadar sürebilir.
+
+
+------------------------------------------------------------
+2.7 ÜRÜN İŞLEMİ / BATCH KONTROLÜ
+------------------------------------------------------------
+
+METHOD
+GET
+
+PATH
+/Products/batch-status/{batchId}
+
+PROD
+GET https://apis.ciceksepeti.com/api/v1/Products/batch-status/{batchId}
+
+TEST
+GET https://sandbox-apis.ciceksepeti.com/api/v1/Products/batch-status/{batchId}
+
+RATE LIMIT
+Aynı batch için yaklaşık dakikada 1.
+Saniyede maksimum 5 farklı request body/batch sorgusu.
+
+AMAÇ
+Ürün yükleme, ürün güncelleme ve stok/fiyat güncelleme işlemlerini kontrol eder.
+
+TEMEL STATÜLER
+Pending
+Failed
+Tamamlanmış/başarılı işlem statüsü response'a göre değerlendirilmelidir.
+
+
+============================================================
+3. SİPARİŞ YÖNETİMİ
+============================================================
+
+------------------------------------------------------------
+3.1 SİPARİŞ LİSTELEME
+------------------------------------------------------------
+
+METHOD
+POST
+
+PATH
+/Order/GetOrders
+
+TAM URL ÖRNEĞİ
+https://apis.ciceksepeti.com/api/v1/Order/GetOrders
+
+RATE LIMIT
+Aynı parametrelerle: yaklaşık dakikada 1
+Farklı request body: yaklaşık 5 saniyede 1
+
+REQUEST PARAMETRELERİ
+
+startDate
+Tip: string
+orderNo veya orderItemNo yoksa zorunlu.
+
+endDate
+Tip: string
+orderNo veya orderItemNo yoksa zorunlu.
+
+pageSize
+Tip: integer
+Zorunlu
+Maksimum 100.
+
+page
+Tip: integer
+Zorunlu
+0'dan başlar.
+
+statusId
+Tip: integer
+Opsiyonel
+
+orderNo
+Ana sipariş numarası
+Opsiyonel
+
+orderItemNo
+Alt sipariş numarası
+Opsiyonel
+
+isOrderStatusActive
+Tip: boolean
+Opsiyonel
+
+Sipariş statusId değerleri:
+1  = Yeni
+2  = Hazırlanıyor
+5  = Kargoya Verildi
+11 = Kargoya Verilecek
+7  = Teslim Edildi
+
+NOTLAR
+orderNo ve orderItemNo birlikte verilirse orderNo önceliklidir.
+Bir ana sipariş birden fazla alt sipariş (orderItemId) içerebilir.
+Tarih aralığı maksimum 2 hafta olmalıdır.
+
+ÖNEMLİ RESPONSE ALANLARINDAN BAZILARI
+branchId
+customerId
+accountCode
+accountCodePrefix
+orderId
+orderItemId
+orderCreateDate
+orderCreateTime
+orderModifyDate
+orderModifyTime
+cargoPrice
+barcode
+cardMessage
+qrCodeMessage
+deliveryCharge
+orderPaymentType
+orderItemStatusId
+orderProductStatus
+orderItemTextListModel
+discount
+totalPrice
+tax
+
+
+------------------------------------------------------------
+3.2 FATURA GÖNDERİMİ
+------------------------------------------------------------
+
+METHOD
+POST
+
+PATH
+/Branch/SendInvoiceMail
+
+AMAÇ
+Alt siparişe ait faturayı base64 PDF veya PDF URL olarak gönderir.
+
+PARAMETRELER
+
+orderItemId
+Tip: integer
+Zorunlu
+
+Document
+Tip: string
+Base64 PDF
+documentUrl yoksa zorunlu
+
+documentUrl
+Tip: string
+PDF linki
+Document yoksa zorunlu
+
+BAŞARILI RESPONSE
+200
+
+
+------------------------------------------------------------
+3.3 ÇİÇEKSEPETİ KARGO ENTEGRASYONU İLE KARGO KODU ALMA
+------------------------------------------------------------
+
+METHOD
+PUT
+
+PATH
+/Order/readyforcargowithcsintegration
+
+AMAÇ
+ÇiçekSepeti'nin anlaşmalı kargo altyapısını kullanan satıcı için
+alt siparişlere kargo kodu oluşturur.
+
+REQUEST
+
+orderItemIds
+Tip: integer array
+Zorunlu
+
+RESPONSE ALANLARI
+
+orderItemId
+partialNumber
+cargoCompany
+isSuccess
+message
+
+partialNumber
+ÇiçekSepeti'nin oluşturduğu kargo kodudur.
+
+Sipariş statüsü "Kargoya Verilecek" olarak ilerler.
+Aynı pakete uygun siparişler beraber gönderilebilir.
+
+
+------------------------------------------------------------
+3.4 KENDİ KARGO ENTEGRASYONUNU KULLANAN SATICI
+------------------------------------------------------------
+
+METHOD
+PUT
+
+PATH
+/Order/statusupdatewithsupplierintegration
+
+AMAÇ
+Kargo takip ve sipariş statüsü bilgilerinin satıcı tarafından yönetilmesi.
+
+REQUEST PARAMETRELERİ
+
+orderItemId
+Tip: integer
+Zorunlu
+
+orderItemStatusId
+Tip: integer
+Zorunlu
+
+cargoBusinessId
+Tip: integer
+Sipariş kargoya çekiliyorsa zorunlu
+
+shipmentNumber
+Kargo takip numarası
+Sipariş kargoya çekiliyorsa zorunlu
+
+shipmentTrackingUrl
+Kargo takip URL'si
+Sipariş kargoya çekiliyorsa zorunlu
+
+receiverName
+Teslim alan kişi
+Teslim edildi statüsünde opsiyonel
+
+deliveryTime
+Teslim zamanı
+Teslim edildi statüsünde opsiyonel
+
+orderItemStatusId değerleri:
+1  = Yeni
+2  = Hazırlanıyor
+5  = Kargoya Verildi
+11 = Kargoya Verilecek
+7  = Teslim Edildi
+3  = Arabaya Verildi
+18 = Firmaya İade Edildi
+
+cargoBusinessId değerlerinden bazıları:
+1   = MNG Kargo
+2   = Yurtiçi Kargo
+25  = Sürat Kargo
+43  = Aras Kargo
+44  = PTT Kargo
+45  = UPS Kargo
+46  = Horoz Lojistik
+55  = Ceva Lojistik
+59  = Sendeo
+116 = kargomSENDE
+117 = Kolay Gelsin
+118 = Arvato Lojistik
+
+Servis aracıyla teslimatta "Arabaya Verildi" statüsü kullanılmalıdır.
+
+
+------------------------------------------------------------
+3.5 SİPARİŞ KARGO FİRMASI DEĞİŞTİRME
+------------------------------------------------------------
+
+METHOD
+PUT
+
+PATH
+/Order/CargoCompany
+
+SADECE
+Yeni statüsündeki siparişlerde kullanılmalıdır.
+
+REQUEST
+{
+  "items": [
+    {
+      "orderProductId": 123456,
+      "cargoId": 2
+    }
+  ]
+}
+
+cargoId değerleri:
+1  = MNG Kargo
+2  = Yurtiçi Kargo
+25 = Sürat Kargo
+43 = Aras Kargo
+44 = PTT Kargo
+45 = UPS Kargo
+46 = Horoz Lojistik
+49 = Borusan Lojistik
+
+
+------------------------------------------------------------
+3.6 DESİ VE PAKET ADEDİ GÖNDERME
+------------------------------------------------------------
+
+METHOD
+POST
+
+PATH
+/Order/CargoMeasurement
+
+SADECE
+Lojistik firmalarına atanmış ve Yeni statüsündeki siparişler.
+
+REQUEST
+{
+  "items": [
+    {
+      "orderProductId": 123456,
+      "desi": 100,
+      "quantity": 1
+    }
+  ]
+}
+
+
+------------------------------------------------------------
+3.7 DİJİTAL SİPARİŞ STATÜ GÜNCELLEME
+------------------------------------------------------------
+
+METHOD
+PUT
+
+PATH
+/Order/digital-order-status-update
+
+NOT
+Ürün ve gönderim tipinin sistemde "dijital" olarak tanımlı olması gerekir.
+
+REQUEST
+{
+  "items": [
+    {
+      "orderProductId": 123456,
+      "receiverName": "...",
+      "deliveryTime": "ISO-8601 tarih"
+    }
+  ]
+}
+
+
+------------------------------------------------------------
+3.8 İŞÇİLİK BEDELİ GÖNDERME
+------------------------------------------------------------
+
+METHOD
+PUT
+
+PATH
+/Order/UpdateLaborCost
+
+PARAMETRELER
+
+orderProductId
+Tip: integer
+Zorunlu
+Alt sipariş numarası
+
+laborCost
+Tip: double
+Zorunlu
+KDV dahil olmalıdır
+
+KURALLAR
+Teslim edildi statüsünden önce gönderilmelidir.
+0 olamaz.
+Siparişteki ürün fiyatından küçük olmalıdır.
+
+
+============================================================
+4. İADE YÖNETİMİ
+============================================================
+
+------------------------------------------------------------
+4.1 İADE / DEĞİŞİM SİPARİŞLERİNİ LİSTELEME
+------------------------------------------------------------
+
+METHOD
+POST
+
+PATH
+/Order/getcanceledorders
+
+PARAMETRELER
+
+orderItemStatusId
+Tip: integer
+Opsiyonel
+
+pageSize
+Tip: integer
+Zorunlu
+
+page
+Tip: integer
+Zorunlu
+0'dan başlar.
+
+startDate
+Opsiyonel
+
+endDate
+Opsiyonel
+
+cancellationStartDate
+Opsiyonel
+
+cancellationEndDate
+Opsiyonel
+
+İADE STATÜLERİ
+
+20 = İade Süreci Başladı
+21 = İade Kargoda
+22 = İade Tedarikçide
+23 = İade Tedarikçi Onayı Bekliyor
+
+İADE KARAR / İPTAL STATUS DEĞERLERİ
+
+1  = Müşteri Haklı
+2  = Bayi Haklı
+4  = Bayi Onay
+8  = Bayi Red
+16 = İptal/İknadan Geri Çekildi
+
+Tarih aralığı verilmezse varsayılan son 1 ay.
+Maksimum tarih aralığı 1 ay.
+
+
+------------------------------------------------------------
+4.2 İADE ÜRÜNÜ TESLİM ALDIM
+------------------------------------------------------------
+
+METHOD
+POST
+
+PATH
+/Order/refundprocessstartreceivedprocess
+
+AMAÇ
+İade kargo entegrasyonla yürümüyorsa ürün satıcıya ulaştığında bildirir.
+
+SADECE
+"İade Süreci Başlatıldı" durumundaki siparişlerde.
+
+REQUEST
+
+orderItemIds
+Tip: integer array
+Zorunlu
+
+İşlem sonrası statü:
+İade Tedarikçide
+
+
+------------------------------------------------------------
+4.3 İADE ONAY / RED
+------------------------------------------------------------
+
+METHOD
+POST
+
+PATH
+/Order/cancelevaluation
+
+SADECE
+İade Tedarikçide statüsündeki siparişler.
+
+PARAMETRELER
+
+orderItemId
+Tip: integer
+Zorunlu
+
+process
+Tip: integer
+Zorunlu
+
+process değerleri:
+1 = Onay
+3 = Red
+
+Onay:
+- Değişim talebinde sipariş yeniden Yeni statüsüne alınabilir.
+- Para iadesinde sipariş kapatılır ve iade süreci ilerler.
+
+Red:
+- Sipariş ÇiçekSepeti değerlendirmesine düşer.
+
+
+============================================================
+5. SORU / CEVAP YÖNETİMİ
+============================================================
+
+------------------------------------------------------------
+5.1 ÜRÜN SORULARINI ÇEKME
+------------------------------------------------------------
+
+METHOD
+GET
+
+PATH
+/sellerquestions
+
+RATE LIMIT
+Aynı request: yaklaşık 10 saniyede 1
+Farklı request: yaklaşık 5 saniyede 1
+
+QUERY PARAMETRELERİ
+
+Id
+ProductCode
+Answered
+CreateStartDate
+CreateEndDate
+BranchActionId
+AgentActionId
+Approve
+SortType
+SortField
+Page
+
+KURAL
+Id ile arama yapılmıyorsa CreateStartDate ve CreateEndDate zorunludur.
+Tarih aralığı maksimum 32 gün.
+
+Answered:
+True  = Cevaplandı
+False = Cevaplanmadı
+Boş   = Tümü
+
+Approve:
+True  = Sitede yayınlanmış
+False = Sitede yayınlanmamış
+
+RESPONSE ALANLARINDAN BAZILARI
+
+id
+code
+name
+url
+imageUrl
+question
+answer
+questionDate
+answered
+agentActionId
+agentActionText
+branchActionId
+branchActionDetailId
+
+
+------------------------------------------------------------
+5.2 ÜRÜN SORUSUNU CEVAPLAMA
+------------------------------------------------------------
+
+METHOD
+PUT
+
+PATH
+/sellerquestions/{id}
+
+PARAMETRELER
+
+Id
+Tip: string
+Zorunlu
+
+answer
+Tip: string
+Koşullu zorunlu
+
+branchActionId
+Tip: integer
+Koşullu zorunlu
+
+branchActionDetailId
+Tip: integer
+Koşullu zorunlu
+
+BranchDescription
+Tip: string
+Koşullu zorunlu
+
+KURALLAR
+
+branchActionId = 1
+- answer zorunlu
+- branchDescription boş
+- branchActionDetailId boş
+
+branchActionId = 2
+- answer zorunlu
+- branchActionDetailId zorunlu
+- branchDescription boş
+
+branchActionId = 3
+- branchDescription zorunlu
+- answer boş
+- branchActionDetailId boş
+
+branchActionId = 4
+- answer boş
+- branchActionDetailId boş
+- branchDescription boş
+
+
+============================================================
+6. ENTEGRASYONDA KRİTİK NOKTALAR
+============================================================
+
+1. Her istekte x-api-key gönderin.
+2. user-agent bilgisini Satıcı ID / Entegratör adına göre doğru kurun.
+3. Test ve prod API key'lerini karıştırmayın.
+4. Ürün create/update/stock-price işlemlerinde batchId saklayın.
+5. Ürün işlemini HTTP 200 geldi diye tamamlanmış kabul etmeyin.
+6. batch-status endpoint'ini rate limit'e uygun sorgulayın.
+7. categoryId olarak en alt kategori ID'sini kullanın.
+8. required category attribute'larını ürün gönderirken doldurun.
+9. Varyant kodu olarak stockCode'un benzersiz ve stabil olmasına dikkat edin.
+10. mainProductCode aynı ürün ailesinin varyantlarını gruplamak için kullanılır.
+11. Fiyatlarda son 30 gün en düşük fiyat / üstü çizili fiyat kurallarını dikkate alın.
+12. Sipariş pagination'ı 0'dan, ürün pagination'ı 1'den başlar.
+13. Sipariş sorgularında tarih aralığı maksimum 2 haftadır.
+14. İade sorgularında tarih aralığı maksimum 1 aydır.
+15. Soru sorgularında tarih aralığı maksimum 32 gündür.
+16. Kargo statüsü ve kargo şirketi modelinizi entegrasyon tipinize göre seçin.
+17. Endpoint isimlerinde büyük/küçük harfleri dokümandaki biçime uygun kullanmak güvenlidir.
+18. Raw JSON kullanılan endpoint'lerde Content-Type: application/json gönderin.
+
+
+============================================================
+7. HIZLI ENDPOINT LİSTESİ
+============================================================
+
+GET  /Categories
+GET  /Categories/{categoryId}/attributes
+
+POST /Products
+GET  /Products
+PUT  /Products
+PUT  /Products/price-and-stock
+GET  /Products/batch-status/{batchId}
+
+POST /Order/GetOrders
+POST /Branch/SendInvoiceMail
+PUT  /Order/readyforcargowithcsintegration
+PUT  /Order/statusupdatewithsupplierintegration
+PUT  /Order/CargoCompany
+POST /Order/CargoMeasurement
+PUT  /Order/digital-order-status-update
+PUT  /Order/UpdateLaborCost
+
+POST /Order/getcanceledorders
+POST /Order/refundprocessstartreceivedprocess
+POST /Order/cancelevaluation
+
+GET  /sellerquestions
+PUT  /sellerquestions/{id}
+
+============================================================
+SON
+============================================================
