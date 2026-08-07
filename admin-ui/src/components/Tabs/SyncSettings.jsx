@@ -37,6 +37,11 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
     const [rawProductsLoading, setRawProductsLoading] = useState(false);
     const [rawProductsError, setRawProductsError] = useState('');
     const [rawProductsData, setRawProductsData] = useState(null);
+    const [publishPopup, setPublishPopup] = useState(false);
+    const [publishDebugEntry, setPublishDebugEntry] = useState(null);
+    const [batchIdInput, setBatchIdInput] = useState('');
+    const [batchChecking, setBatchChecking] = useState(false);
+    const [batchStatusResult, setBatchStatusResult] = useState(null);
     const [feedback, setFeedback] = useState(null);
 
     useEffect(() => {
@@ -50,6 +55,11 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
         setRawProductsLoading(false);
         setRawProductsError('');
         setRawProductsData(null);
+        setPublishPopup(false);
+        setPublishDebugEntry(null);
+        setBatchIdInput('');
+        setBatchChecking(false);
+        setBatchStatusResult(null);
         setFeedback(null);
     }, [supplier]);
 
@@ -187,45 +197,53 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
         setFeedback(null);
         setLoading(true);
         try {
-           const res = await api.publishProducts(supplier.id, selectedItems, productOverrides);
-           const result = res.data?.result || {};
-           const batchId = result.response?.batchId || result.response?.batchRequestId || result.response?.trackingId || result.response?.id || '-';
-            const uploaded = result.uploaded || 0;
-            const updated = result.updated || 0;
-            const unchanged = result.unchanged || 0;
-            const detail = (uploaded && updated) ? ` (${uploaded} yeni, ${updated} güncelleme)` : (uploaded ? ' (yeni)' : (updated ? ' (güncelleme)' : ''));
-            const extra = unchanged ? `, ${unchanged} değişiklik yok (atlandı)` : '';
-            const batchNote = result.batch_status === 'pending' ? ' (Ciceksepeti onay bekliyor)' : (result.batch_status === 'completed' ? ' (onaylandı)' : '');
-            setFeedback({ type: 'success', message: `${result.sent || 0} ürün ${supplier.name || supplier.marketplace_key}'a gönderildi${detail}${extra}. Batch ID: ${batchId}${batchNote}` });
-            if (result.batch_status === 'pending' && batchId !== '-') {
-                pollBatchStatus(batchId);
-            }
+         const res = await api.publishProducts(supplier.id, selectedItems, productOverrides);
+         const result = res.data?.result || {};
+         const batchId = result.response?.batchId || result.response?.batchRequestId || result.response?.trackingId || result.response?.id || '-';
+          const uploaded = result.uploaded || 0;
+          const updated = result.updated || 0;
+          const unchanged = result.unchanged || 0;
+          const detail = (uploaded && updated) ? ` (${uploaded} yeni, ${updated} güncelleme)` : (uploaded ? ' (yeni)' : (updated ? ' (güncelleme)' : ''));
+          const extra = unchanged ? `, ${unchanged} değişiklik yok (atlandı)` : '';
+          const batchNote = result.batch_status === 'pending' ? ' (Ciceksepeti onay bekliyor)' : (result.batch_status === 'completed' ? ' (onaylandı)' : '');
+          setFeedback({ type: 'success', message: `${result.sent || 0} ürün ${supplier.name || supplier.marketplace_key}'a gönderildi${detail}${extra}. Batch ID: ${batchId}${batchNote}` });
+          if (batchId && batchId !== '-') {
+              setBatchIdInput(String(batchId));
+          }
         } catch (e) {
             setFeedback({ type: 'error', message: e.response?.data?.message || e.message || 'Ürün gönderimi başarısız.' });
         }
         setLoading(false);
+        fetchPublishDebug();
     };
 
-    const pollBatchStatus = async (batchId, attempt = 1) => {
+    const fetchPublishDebug = async () => {
+        try {
+            const res = await api.getMarketplaceHttpDebug(supplier.id, supplier.marketplace_key || '', { limit: 5, operation: 'product' });
+            const history = Array.isArray(res.data?.history) ? res.data.history : [];
+            const entry = history.length > 0 ? history[0] : (res.data?.entry || null);
+            if (entry) {
+                setPublishDebugEntry(entry);
+                setPublishPopup(true);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const checkBatchStatus = async () => {
+        const batchId = batchIdInput.trim();
+        if (!batchId) return;
+        setBatchChecking(true);
+        setBatchStatusResult(null);
         try {
             const res = await api.getPublishBatchStatus(supplier.id, batchId);
-            const status = String(res.data?.status || 'pending');
-            const msg = String(res.data?.message || '');
-            if (status === 'completed') {
-                setFeedback({ type: 'success', message: `Batch ${batchId}: Ciceksepeti onayladı. Ürünler yayında.` });
-                return;
-            }
-            if (status === 'failed' || status === 'timeout' || status === 'error') {
-                setFeedback({ type: 'error', message: `Batch ${batchId}: ${msg || status}` });
-                return;
-            }
-            setFeedback({ type: 'success', message: `Batch ${batchId}: Ciceksepeti onay bekliyor (kontrol #${attempt})${msg ? ' — ' + msg : ''}` });
+            setBatchStatusResult({ status: String(res.data?.status || 'unknown'), message: String(res.data?.message || ''), source: String(res.data?.source || ''), checked_at: String(res.data?.checked_at || '') });
         } catch (e) {
-            setFeedback({ type: 'error', message: `Batch ${batchId} durum sorgusu hatası: ${e.response?.data?.message || e.message}` });
+            setBatchStatusResult({ status: 'error', message: e.response?.data?.message || e.message || 'Durum sorgusu başarısız.' });
         }
-        if (attempt < 20) {
-            setTimeout(() => pollBatchStatus(batchId, attempt + 1), 15000);
-        }
+        setBatchChecking(false);
+        fetchPublishDebug();
     };
 
     const loadMarketplaceDebug = async (opOverride = null, statusOverride = null) => {
@@ -386,6 +404,53 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
     return (
         <div>
             <h2>Senkron Ayarları</h2>
+
+            {publishPopup && publishDebugEntry && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => { setPublishPopup(false); }}>
+                    <div style={{ background: '#fff', borderRadius: '8px', padding: '20px', maxWidth: '680px', width: '90%', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 8px 30px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                            <strong>Gönderim HTTP Detayı</strong>
+                            <button className="btn" onClick={() => setPublishPopup(false)} style={{ padding: '2px 10px', fontSize: '14px' }}>✕</button>
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#4a5568', marginBottom: '8px' }}>
+                            {getDebugOperation(publishDebugEntry)} | Status: {getDebugStatusCode(publishDebugEntry) || '-'} | Süre: {getDebugDuration(publishDebugEntry) || '-'}
+                        </div>
+                        <div>
+                            <strong style={{ fontSize: '12px' }}>Request</strong>
+                            <textarea readOnly value={formatDebugValue(publishDebugEntry.request)} style={{ width: '100%', height: '160px', marginTop: '4px', fontFamily: 'monospace', fontSize: '12px', lineHeight: 1.4, resize: 'vertical', boxSizing: 'border-box' }} />
+                        </div>
+                        <div>
+                            <strong style={{ fontSize: '12px' }}>Response</strong>
+                            <textarea readOnly value={formatDebugValue(publishDebugEntry.response)} style={{ width: '100%', height: '200px', marginTop: '4px', fontFamily: 'monospace', fontSize: '12px', lineHeight: 1.4, resize: 'vertical', boxSizing: 'border-box' }} />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div style={{ marginBottom: '12px', padding: '10px', border: '1px solid #d6dbe3', borderRadius: '6px', background: '#f8fafc', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <strong style={{ fontSize: '13px' }}>Batch Durum Kontrolü:</strong>
+                <input
+                    value={batchIdInput}
+                    onChange={e => setBatchIdInput(e.target.value)}
+                    placeholder="Batch ID girin"
+                    style={{ minWidth: '200px', fontSize: '12px', padding: '4px 8px' }}
+                />
+                <button
+                    className="btn"
+                    onClick={checkBatchStatus}
+                    disabled={batchChecking || !batchIdInput.trim()}
+                    style={{ padding: '4px 12px', fontSize: '12px', background: '#2f6fed', color: 'white' }}
+                >
+                    {batchChecking ? 'Kontrol ediliyor...' : 'Batch Durumunu Kontrol Et'}
+                </button>
+                {batchStatusResult && (
+                    <span style={{ fontSize: '12px', color: batchStatusResult.status === 'completed' ? '#50705a' : (batchStatusResult.status === 'failed' || batchStatusResult.status === 'error' ? '#b32d2e' : '#cc8800') }}>
+                        <strong>{batchStatusResult.status}</strong>
+                        {batchStatusResult.message ? ` — ${batchStatusResult.message}` : ''}
+                        {batchStatusResult.checked_at ? ` (${batchStatusResult.checked_at})` : ''}
+                    </span>
+                )}
+            </div>
 
             {feedback && (
                 <div className={`multi-sync-feedback ${feedback.type}`} role={feedback.type === 'error' ? 'alert' : 'status'} aria-live="polite">
