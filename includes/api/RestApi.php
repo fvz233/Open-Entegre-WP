@@ -624,8 +624,8 @@ class RestApi
             'woo_categories' => $categories,
             'woo_brands' => $this->woo_brand_terms(),
             'marketplace_label' => $context['adapter']->get_label(),
-            'mappings' => $this->marketplace_category_mappings($supplier_id),
-            'brand_mappings' => get_option('multi_sync_brand_mappings_' . $supplier_id, array()),
+            'mappings' => $this->marketplace_category_mappings($supplier_id, $context),
+            'brand_mappings' => get_option($this->marketplace_mapping_option_name('multi_sync_brand_mappings_', $supplier_id, $context), array()),
         ));
     }
 
@@ -688,14 +688,14 @@ class RestApi
         if (!in_array($woo_brand_key, $valid_keys, true)) {
             return new \WP_Error('multi_sync_invalid_woo_brand', 'WooCommerce markasi gecersiz.', array('status' => 400));
         }
-        $mappings = get_option('multi_sync_brand_mappings_' . $supplier_id, array());
+        $option_name = $this->marketplace_mapping_option_name('multi_sync_brand_mappings_', $supplier_id, $context);
+        $mappings = get_option($option_name, array());
         $brand_id = sanitize_text_field((string) $request->get_param('brand_id'));
         if ($brand_id === '') unset($mappings[$woo_brand_key]);
         else $mappings[$woo_brand_key] = array(
             'brand_id' => $brand_id,
             'brand_name' => sanitize_text_field((string) $request->get_param('brand_name')),
         );
-        $option_name = 'multi_sync_brand_mappings_' . $supplier_id;
         update_option($option_name, $mappings, false);
         if (get_option($option_name, null) !== $mappings) {
             return new \WP_Error('multi_sync_mapping_save_failed', 'Marka eslemesi veritabanina kaydedilemedi.', array('status' => 500));
@@ -719,7 +719,7 @@ class RestApi
         if (!$woo_category_id || !term_exists($woo_category_id, 'product_cat')) {
             return new \WP_Error('multi_sync_invalid_woo_category', 'WooCommerce kategorisi gecersiz.', array('status' => 400));
         }
-        $mappings = $this->marketplace_category_mappings($supplier_id);
+        $mappings = $this->marketplace_category_mappings($supplier_id, $context);
         $marketplace_category_id = sanitize_text_field((string) ($request->get_param('marketplace_category_id') ?: $request->get_param('trendyol_category_id')));
         if ($marketplace_category_id === '' || $marketplace_category_id === '0') {
             unset($mappings[$woo_category_id]);
@@ -773,7 +773,7 @@ class RestApi
             );
             if ($commission_raw !== '') $mappings[$woo_category_id]['commission_rate'] = (float) $commission_raw;
         }
-        $option_name = 'multi_sync_category_mappings_' . $supplier_id;
+        $option_name = $this->marketplace_mapping_option_name('multi_sync_category_mappings_', $supplier_id, $context);
         update_option($option_name, $mappings, false);
         if (get_option($option_name, null) !== $mappings) {
             return new \WP_Error('multi_sync_mapping_save_failed', 'Kategori eslemesi veritabanina kaydedilemedi.', array('status' => 500));
@@ -790,10 +790,20 @@ class RestApi
         return array('supplier' => $supplier, 'adapter' => (new MarketplaceManager())->for_supplier($supplier));
     }
 
-    private function marketplace_category_mappings($supplier_id)
+    private function marketplace_category_mappings($supplier_id, $context)
     {
-        $mappings = get_option('multi_sync_category_mappings_' . (int) $supplier_id, null);
+        $option_name = $this->marketplace_mapping_option_name('multi_sync_category_mappings_', $supplier_id, $context);
+        $mappings = get_option($option_name, null);
+        if (substr($option_name, -5) === '_test' && !is_array($mappings)) return array();
         return is_array($mappings) ? $mappings : get_option('multi_sync_trendyol_category_mappings_' . (int) $supplier_id, array());
+    }
+
+    private function marketplace_mapping_option_name($prefix, $supplier_id, $context)
+    {
+        $suffix = is_callable(array($context['adapter'], 'mapping_option_suffix'))
+            ? $context['adapter']->mapping_option_suffix($context['supplier'])
+            : '';
+        return $prefix . (int) $supplier_id . $suffix;
     }
 
     private function woo_brand_terms()

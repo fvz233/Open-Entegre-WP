@@ -40,6 +40,11 @@ class HepsiburadaMarketplace extends BaseMarketplace
         return $this->is_test_environment($supplier) ? self::TEST_API_BASE : self::API_BASE;
     }
 
+    public function mapping_option_suffix($supplier)
+    {
+        return $this->is_test_environment($supplier) ? '_test' : '';
+    }
+
     protected function build_user_agent($supplier)
     {
         return 'MultiSync/' . (defined('MULTI_SYNC_VERSION') ? MULTI_SYNC_VERSION : '1.0');
@@ -287,5 +292,25 @@ class HepsiburadaMarketplace extends BaseMarketplace
     public function map_order($raw_item) { return new \WP_Error('multi_sync_hepsiburada_not_supported', 'Hepsiburada siparis aktarimi bu surumde desteklenmiyor.'); }
     public function build_price_inventory_item_from_product($product, $sync_stock = true, $sync_price = true) { return null; }
     public function push_price_inventory_updates($supplier, $items) { return new \WP_Error('multi_sync_hepsiburada_not_supported', 'Hepsiburada stok/fiyat gonderimi bu surumde desteklenmiyor.'); }
-    public function get_batch_request_result($supplier, $batch_request_id) { return new \WP_Error('multi_sync_hepsiburada_not_supported', 'Hepsiburada tracking sorgusu bu surumde desteklenmiyor.'); }
+    public function get_batch_request_result($supplier, $batch_request_id)
+    {
+        $check = $this->validate_credentials($supplier);
+        if (is_wp_error($check)) return $check;
+        $batch_request_id = trim((string) $batch_request_id);
+        if ($batch_request_id === '') return new \WP_Error('multi_sync_hepsiburada_tracking_required', 'Hepsiburada trackingId zorunludur.');
+        $result = null;
+        $items = array();
+        $page = 0;
+        do {
+            $url = $this->api_base($supplier) . '/products/status/' . rawurlencode($batch_request_id) . '?' . http_build_query(array('page' => $page, 'size' => 100, 'version' => 1));
+            $response = $this->request_json('GET', $url, $supplier);
+            if (is_wp_error($response)) return $response;
+            $data = isset($response['data']) && is_array($response['data']) ? $response['data'] : array();
+            if ($result === null) $result = $data;
+            $items = array_merge($items, $this->extract_list($data, array('data')));
+            $page++;
+        } while ($page < min(10, max(1, (int) ($data['totalPages'] ?? 1))));
+        if ($items) $result['data'] = $items;
+        return $result ?: array();
+    }
 }

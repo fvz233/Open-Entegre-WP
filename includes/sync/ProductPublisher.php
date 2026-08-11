@@ -244,8 +244,13 @@ class ProductPublisher
     public static function ciceksepeti_batch_verdict($data)
     {
         $json = strtolower((string) json_encode($data));
-        if (strpos($json, 'failed') !== false) {
+        if (strpos($json, 'failed') !== false || strpos($json, '"success":false') !== false
+            || strpos($json, '"severity":"error"') !== false || strpos($json, 'missing_info') !== false
+            || strpos($json, 'rejected') !== false) {
             return 'failed';
+        }
+        if (strpos($json, 'processing') !== false || strpos($json, 'pending') !== false || strpos($json, 'in_progress') !== false) {
+            return 'pending';
         }
         if (strpos($json, 'completed') !== false || strpos($json, 'success') !== false || strpos($json, 'succeeded') !== false) {
             return 'completed';
@@ -571,10 +576,12 @@ class ProductPublisher
             return new \WP_Error('multi_sync_product_publish_unsupported', $adapter->get_label() . ' urun gonderimi henuz desteklenmiyor.');
         }
 
-        $mappings = get_option('multi_sync_category_mappings_' . (int) $supplier_id, null);
-        if (!is_array($mappings)) {
+        $mapping_suffix = is_callable(array($adapter, 'mapping_option_suffix')) ? $adapter->mapping_option_suffix($supplier) : '';
+        $mappings = get_option('multi_sync_category_mappings_' . (int) $supplier_id . $mapping_suffix, null);
+        if (!is_array($mappings) && $mapping_suffix === '') {
             $mappings = get_option('multi_sync_trendyol_category_mappings_' . (int) $supplier_id, array());
         }
+        if (!is_array($mappings)) $mappings = array();
 
         $commission_rates = array();
         if (is_callable(array($adapter, 'fetch_category_commission_rates'))) {
@@ -588,7 +595,7 @@ class ProductPublisher
             'supplier_id' => (int) $supplier_id,
             'marketplace_key' => is_callable(array($adapter, 'get_key')) ? $adapter->get_key() : '',
             'mappings' => $mappings,
-            'brand_mappings' => get_option('multi_sync_brand_mappings_' . (int) $supplier_id, array()),
+            'brand_mappings' => get_option('multi_sync_brand_mappings_' . (int) $supplier_id . $mapping_suffix, array()),
             'commission_rates' => $commission_rates,
         );
     }

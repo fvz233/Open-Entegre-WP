@@ -57,7 +57,7 @@ class MarketplacePublishProduct
 class HepsiburadaFixture extends MultiSync\Marketplaces\HepsiburadaMarketplace
 {
     public $responses = array();
-    protected function request_json($method, $url, $supplier, $body = null) { return array_shift($this->responses); }
+    protected function request_json($method, $url, $supplier, $body = null) { $GLOBALS['hepsiburada_json_request'] = array('method' => $method, 'url' => $url); return array_shift($this->responses); }
     public function multipart($items) { return $this->build_multipart_body($items, 'Boundary'); }
     public function api_base_for($supplier) { return $this->api_base($supplier); }
 }
@@ -145,8 +145,17 @@ $hb_result = $hepsiburada->push_products((object) array('api_key' => 'user', 'ap
 check($hb_result['trackingId'] === 'tracking-1' && strpos($GLOBALS['hepsiburada_request']['args']['body'], '"merchant":"merchant-1"') !== false, 'Hepsiburada tracking ID or merchant upload failed.');
 $hb_test_supplier = (object) array('hepsiburada_environment' => 'test', 'hepsiburada_test_api_key' => 'test-user', 'hepsiburada_test_api_secret' => 'test-pass', 'hepsiburada_test_seller_id' => 'test-merchant');
 check($hepsiburada->api_base_for($hb_test_supplier) === 'https://mpop-sit.hepsiburada.com/product/api', 'Hepsiburada SIT API base failed.');
+check($hepsiburada->mapping_option_suffix($hb_test_supplier) === '_test' && $hepsiburada->mapping_option_suffix((object) array()) === '', 'Hepsiburada SIT mapping isolation failed.');
 $hepsiburada->push_products($hb_test_supplier, array($hb_item));
 check(strpos($GLOBALS['hepsiburada_request']['url'], 'https://mpop-sit.hepsiburada.com/product/api/products/import') === 0 && $GLOBALS['hepsiburada_request']['args']['headers']['Authorization'] === 'Basic ' . base64_encode('test-user:test-pass') && strpos($GLOBALS['hepsiburada_request']['args']['body'], '"merchant":"test-merchant"') !== false, 'Hepsiburada SIT credentials or endpoint failed.');
+$hepsiburada->responses = array(
+    array('data' => array('success' => true, 'totalPages' => 2, 'data' => array(array('merchantSku' => 'SKU1', 'importStatus' => 'PROCESSING')))),
+    array('data' => array('success' => true, 'totalPages' => 2, 'data' => array(array('merchantSku' => 'SKU2', 'importStatus' => 'PROCESSING')))),
+);
+$hb_status = $hepsiburada->get_batch_request_result($hb_test_supplier, 'tracking 1');
+check(count($hb_status['data']) === 2 && $hb_status['data'][0]['importStatus'] === 'PROCESSING' && strpos($GLOBALS['hepsiburada_json_request']['url'], 'https://mpop-sit.hepsiburada.com/product/api/products/status/tracking%201?page=1') === 0, 'Hepsiburada SIT tracking status pagination failed.');
+check(MultiSync\Sync\ProductPublisher::ciceksepeti_batch_verdict($hb_status) === 'pending', 'Hepsiburada processing status was treated as complete.');
+check(MultiSync\Sync\ProductPublisher::ciceksepeti_batch_verdict(array('success' => false)) === 'failed', 'Hepsiburada failed status was treated as complete.');
 
 $hepsiburada->responses = array(
     array('data' => array('data' => array(array('id' => 'brand', 'name' => 'Marka', 'mandatory' => true, 'type' => 'enum')))),
