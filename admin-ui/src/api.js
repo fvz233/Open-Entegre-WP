@@ -50,7 +50,7 @@ const api = {
 };
 
 export default {
-    getSuppliers: () => api.get('/suppliers'),
+    getSuppliers: () => api.get('/suppliers', { params: { _: Date.now() } }),
     updateSupplier: (id, data) => api.post(`/suppliers/${id}`, data),
     runSync: (supplierId, type, selectedItems = [], variationChoices = {}) => api.post('/sync/run', { supplier_id: supplierId, type, selected_items: selectedItems, variation_choices: variationChoices }),
     previewSync: (supplierId) => api.post('/sync/preview', { supplier_id: supplierId }),
