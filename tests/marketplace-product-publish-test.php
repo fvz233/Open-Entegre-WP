@@ -15,6 +15,7 @@ function is_wp_error($value) { return $value instanceof WP_Error; }
 function check($condition, $message) { if (!$condition) throw new RuntimeException($message); }
 function sanitize_text_field($value) { return trim((string) $value); }
 function esc_url_raw($value) { return (string) $value; }
+function esc_html($value) { return htmlspecialchars((string) $value, ENT_QUOTES | ENT_XML1, 'UTF-8'); }
 function wp_json_encode($value, $flags = 0) { return json_encode($value, $flags); }
 function wp_strip_all_tags($value) { return strip_tags($value); }
 function wp_generate_password($length = 12) { return str_repeat('x', $length); }
@@ -60,6 +61,7 @@ class HepsiburadaFixture extends MultiSync\Marketplaces\HepsiburadaMarketplace
     protected function request_json($method, $url, $supplier, $body = null) { $GLOBALS['hepsiburada_json_request'] = array('method' => $method, 'url' => $url); return array_shift($this->responses); }
     public function multipart($items) { return $this->build_multipart_body($items, 'Boundary'); }
     public function api_base_for($supplier) { return $this->api_base($supplier); }
+    public function listing_api_base_for($supplier) { return $this->listing_api_base($supplier); }
 }
 
 class HepsiburadaParentProduct extends MarketplacePublishProduct
@@ -146,6 +148,7 @@ check($hb_result['trackingId'] === 'tracking-1' && strpos($GLOBALS['hepsiburada_
 $hb_test_supplier = (object) array('hepsiburada_environment' => 'test', 'hepsiburada_test_api_key' => 'test-user', 'hepsiburada_test_api_secret' => 'test-pass', 'hepsiburada_test_seller_id' => 'test-merchant');
 check($hepsiburada->api_base_for($hb_test_supplier) === 'https://mpop-sit.hepsiburada.com/product/api', 'Hepsiburada SIT API base failed.');
 check($hepsiburada->mapping_option_suffix($hb_test_supplier) === '_test' && $hepsiburada->mapping_option_suffix((object) array()) === '', 'Hepsiburada SIT mapping isolation failed.');
+check($hepsiburada->listing_api_base_for($hb_test_supplier) === 'https://listing-external-sit.hepsiburada.com', 'Hepsiburada SIT listing base failed.');
 $hepsiburada->push_products($hb_test_supplier, array($hb_item));
 check(strpos($GLOBALS['hepsiburada_request']['url'], 'https://mpop-sit.hepsiburada.com/product/api/products/import') === 0 && $GLOBALS['hepsiburada_request']['args']['headers']['Authorization'] === 'Basic ' . base64_encode('test-user:test-pass') && strpos($GLOBALS['hepsiburada_request']['args']['body'], '"merchant":"test-merchant"') !== false, 'Hepsiburada SIT credentials or endpoint failed.');
 $hepsiburada->responses = array(
@@ -174,6 +177,25 @@ $hepsiburada->responses = array(
 $hb_brands = $hepsiburada->fetch_product_brands($hb_supplier, 'dem', '123');
 check(count($hb_brands) === 1 && $hb_brands[0]['name'] === 'Demsu', 'Hepsiburada brand search failed.');
 
+$hepsiburada->responses = array(
+    array('data' => array('data' => array())),
+    array('data' => array('data' => array())),
+    array('data' => array('data' => array(array('merchantSku' => 'SKU1', 'hbSku' => 'HB1', 'productName' => 'Semaver', 'barcode' => '8691', 'price' => 100, 'stock' => 4)))),
+    array('data' => array('data' => array())),
+    array('data' => array('data' => array())),
+    array('data' => array('data' => array())),
+    array('data' => array('data' => array())),
+);
+$hb_products = $hepsiburada->fetch_products($hb_supplier, array('page' => 0, 'size' => 300));
+$hb_mapped = $hepsiburada->map_product($hb_products[0]);
+check(count($hb_products) === 1 && $hb_mapped['sku'] === 'SKU1' && $hb_mapped['external_product_id'] === 'HB1', 'Hepsiburada product import mapping failed.');
+
+$hb_inventory = $hepsiburada->build_price_inventory_item_from_product($product, true, true, 10);
+check($hb_inventory['merchantSku'] === '8690000000001' && $hb_inventory['availableStock'] === 4 && $hb_inventory['price'] === '111.00', 'Hepsiburada listing payload failed.');
+$hb_inventory_result = $hepsiburada->push_price_inventory_updates($hb_test_supplier, array($hb_inventory));
+check(!is_wp_error($hb_inventory_result) && strpos($GLOBALS['hepsiburada_request']['url'], 'https://listing-external-sit.hepsiburada.com/listings/merchantid/test-merchant/inventory-uploads') === 0, 'Hepsiburada listing endpoint failed.');
+check(strpos($GLOBALS['hepsiburada_request']['args']['body'], '<MerchantSku>8690000000001</MerchantSku>') !== false && strpos($GLOBALS['hepsiburada_request']['args']['body'], '<Price>111,00</Price>') !== false && strpos($GLOBALS['hepsiburada_request']['args']['body'], '<AvailableStock>4</AvailableStock>') !== false, 'Hepsiburada listing XML failed.');
+
 $comparison_method = new ReflectionMethod(MultiSync\Sync\ProductPublisher::class, 'comparison_before_after');
 $comparison_method->setAccessible(true);
 $comparison = $comparison_method->invoke(
@@ -190,5 +212,9 @@ $comparison_changed = $comparison_method->invoke(
     array('listPrice' => 110.0, 'salePrice' => 110.0, 'quantity' => 4)
 );
 check($comparison_changed['price_changed'] === true && $comparison_changed['stock_changed'] === true, 'Published product comparison failed for changed item.');
+
+$unchanged_method = new ReflectionMethod(MultiSync\Sync\ProductPublisher::class, 'product_unchanged');
+$unchanged_method->setAccessible(true);
+check($unchanged_method->invoke(new MultiSync\Sync\ProductPublisher(), array('price' => '100.00', 'availableStock' => 5), array('regular_price' => 100, 'sale_price' => null, 'stock_quantity' => 4)) === false, 'Hepsiburada stock change was ignored.');
 
 echo "marketplace-product-publish-test: ok\n";

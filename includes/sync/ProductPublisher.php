@@ -442,7 +442,7 @@ class ProductPublisher
             return false;
         }
 
-        $item_stock = isset($item['quantity']) ? $item['quantity'] : (isset($item['stock']) ? $item['stock'] : null);
+        $item_stock = isset($item['quantity']) ? $item['quantity'] : (isset($item['stock']) ? $item['stock'] : (isset($item['availableStock']) ? $item['availableStock'] : null));
         $catalog_stock = isset($catalog_item['stock_quantity']) ? $catalog_item['stock_quantity'] : null;
         if ($item_stock !== null && $catalog_stock !== null && (int) $item_stock !== (int) $catalog_stock) {
             return false;
@@ -469,6 +469,9 @@ class ProductPublisher
         if (is_array($price_item)) {
             $item_regular = isset($price_item['listPrice']) && is_numeric($price_item['listPrice']) ? (float) $price_item['listPrice'] : null;
             $item_sale = isset($price_item['salePrice']) && is_numeric($price_item['salePrice']) ? (float) $price_item['salePrice'] : null;
+            if ($item_regular === null && isset($price_item['price']) && is_numeric($price_item['price'])) {
+                $item_regular = (float) $price_item['price'];
+            }
             if ($item_regular !== null) {
                 $regular = $item_regular;
                 if ($item_sale !== null && $item_sale < $item_regular) {

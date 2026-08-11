@@ -549,7 +549,7 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
 
                 <div style={{ borderLeft: '1px solid #eee', paddingLeft: '20px' }}>
                     <h4>Manuel İşlemler</h4>
-                    {!isHepsiburada && <div className="form-group checkbox-stack" style={{ marginBottom: '10px' }}>
+                    <div className="form-group checkbox-stack" style={{ marginBottom: '10px' }}>
                         <label className="checkbox-inline-label">
                             <input
                                 className="checkbox-inline-input"
@@ -568,16 +568,16 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
                             />
                             Manuel Gönderimde Fiyat Güncelle
                         </label>
-                    </div>}
+                    </div>
                     <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
-                        {!isHepsiburada && <button className="btn" onClick={() => setShowProductModal(true)} disabled={loading}>Ürün Senkronu Çalıştır (İçe Aktar)</button>}
+                        <button className="btn" onClick={() => setShowProductModal(true)} disabled={loading}>Ürün Senkronu Çalıştır (İçe Aktar)</button>
                         <button className="btn" onClick={() => setShowProductPublishModal(true)} disabled={loading} style={{ background: '#f27a1a', color: 'white' }}>
                             Woo Ürünlerini {supplier.name || supplier.marketplace_key}'a Gönder
                         </button>
                         {!isHepsiburada && <button className="btn" onClick={() => setShowOrderModal(true)} disabled={loading} style={{ background: '#17a2b8', color: 'white' }}>Sipariş Senkronu Çalıştır (İçe Aktar)</button>}
-                        {!isHepsiburada && <button className="btn" onClick={() => setShowStockPriceModal(true)} disabled={loading} style={{ background: '#f27a1a', color: 'white' }}>
+                        <button className="btn" onClick={() => setShowStockPriceModal(true)} disabled={loading} style={{ background: '#f27a1a', color: 'white' }}>
                             {`Stok ve Fiyatı ${supplier?.name || 'Pazar Yeri'}'ne Gönder`}
-                        </button>}
+                        </button>
                     </div>
 
                     {showDebugMenu && (

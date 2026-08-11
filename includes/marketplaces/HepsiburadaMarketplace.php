@@ -10,6 +10,8 @@ class HepsiburadaMarketplace extends BaseMarketplace
 {
     const API_BASE = 'https://mpop.hepsiburada.com/product/api';
     const TEST_API_BASE = 'https://mpop-sit.hepsiburada.com/product/api';
+    const LISTING_API_BASE = 'https://listing-external.hepsiburada.com';
+    const TEST_LISTING_API_BASE = 'https://listing-external-sit.hepsiburada.com';
 
     public function get_key() { return 'hepsiburada'; }
 
@@ -40,6 +42,11 @@ class HepsiburadaMarketplace extends BaseMarketplace
         return $this->is_test_environment($supplier) ? self::TEST_API_BASE : self::API_BASE;
     }
 
+    protected function listing_api_base($supplier)
+    {
+        return $this->is_test_environment($supplier) ? self::TEST_LISTING_API_BASE : self::LISTING_API_BASE;
+    }
+
     public function mapping_option_suffix($supplier)
     {
         return $this->is_test_environment($supplier) ? '_test' : '';
@@ -48,6 +55,22 @@ class HepsiburadaMarketplace extends BaseMarketplace
     protected function build_user_agent($supplier)
     {
         return 'MultiSync/' . (defined('MULTI_SYNC_VERSION') ? MULTI_SYNC_VERSION : '1.0');
+    }
+
+    protected function request_json($method, $url, $supplier, $body = null)
+    {
+        $response = parent::request_json($method, $url, $supplier, $body);
+        if (!is_wp_error($response)) return $response;
+
+        $data = $response->get_error_data();
+        if (is_array($data) && in_array((int) ($data['code'] ?? 0), array(401, 403), true)) {
+            return new \WP_Error(
+                'multi_sync_hepsiburada_forbidden',
+                'Hepsiburada yetkilendirmesi reddedildi. Secili ortam kullanici adi/sifre, Merchant ID ve Merchant Panel entegrator servis yetkisini kontrol edin.',
+                $data
+            );
+        }
+        return $response;
     }
 
     public function fetch_product_categories($supplier, $search = '')
@@ -286,12 +309,129 @@ class HepsiburadaMarketplace extends BaseMarketplace
         return array_slice(array_values(array_unique($images)), 0, 5);
     }
 
-    public function fetch_products($supplier, $params = array()) { return new \WP_Error('multi_sync_hepsiburada_not_supported', 'Hepsiburada urun ice aktarma bu surumde desteklenmiyor.'); }
+    public function fetch_products($supplier, $params = array())
+    {
+        $check = $this->validate_credentials($supplier);
+        if (is_wp_error($check)) return $check;
+
+        $page = isset($params['page']) ? max(0, (int) $params['page']) : 0;
+        $size = isset($params['size']) ? max(1, min(100, (int) $params['size'])) : 100;
+        $items = array();
+        foreach (array('WAITING', 'MISSING_INFO', 'MATCHED', 'PRE_MATCHED', 'REJECTED', 'MATCHED_WITH_STAGED', 'CREATED') as $status) {
+            $url = $this->api_base($supplier) . '/products/products-by-merchant-and-status?' . http_build_query(array(
+                'merchantId' => $this->get_seller_id($supplier),
+                'productStatus' => $status,
+                'taskStatus' => 'false',
+                'version' => 1,
+                'page' => $page,
+                'size' => $size,
+            ));
+            $response = $this->request_json('GET', $url, $supplier);
+            if (is_wp_error($response)) return $response;
+            $rows = $this->extract_list($response['data'], array('data', 'content', 'items', 'products'));
+            foreach ($rows as $row) {
+                $row = is_array($row) ? $row : (array) $row;
+                if (empty($row['productStatus'])) $row['productStatus'] = $status;
+                $items[] = $row;
+            }
+        }
+        return $items;
+    }
     public function fetch_orders($supplier, $params = array()) { return new \WP_Error('multi_sync_hepsiburada_not_supported', 'Hepsiburada siparis aktarimi bu surumde desteklenmiyor.'); }
-    public function map_product($raw_item) { return new \WP_Error('multi_sync_hepsiburada_not_supported', 'Hepsiburada urun ice aktarma bu surumde desteklenmiyor.'); }
+    public function map_product($raw_item)
+    {
+        $item = is_array($raw_item) ? $raw_item : (array) $raw_item;
+        $sku = trim((string) $this->first_not_empty($item, array('merchantSku', 'merchantSKU', 'MerchantSku'), ''));
+        if ($sku === '') return new \WP_Error('multi_sync_hepsiburada_missing_sku', 'Hepsiburada urununde merchantSku bulunamadi.');
+
+        $images = array();
+        foreach ((array) $this->first_not_empty($item, array('images', 'imageUrls'), array()) as $image) {
+            $image = is_array($image) ? $this->first_not_empty($image, array('url', 'imageUrl'), '') : $image;
+            if (is_string($image) && preg_match('#^https?://#i', $image)) $images[] = $image;
+        }
+        $preview = (string) $this->first_not_empty($item, array('imageUrl', 'image', 'productImageUrl'), '');
+        if ($preview !== '' && !$images) $images[] = $preview;
+
+        $price = $this->first_not_empty($item, array('price', 'salePrice', 'listingPrice'), null);
+        if (is_array($price)) $price = $this->first_not_empty($price, array('amount', 'value'), null);
+        return array(
+            'sku' => $sku,
+            'name' => (string) $this->first_not_empty($item, array('productName', 'name', 'title'), $sku),
+            'regular_price' => $this->to_float($price, null),
+            'sale_price' => $this->to_float($price, null),
+            'stock_quantity' => $this->to_int($this->first_not_empty($item, array('availableStock', 'stock', 'quantity'), 0), 0),
+            'images' => $images,
+            'preview_image' => $images ? $images[0] : '',
+            'external_sku' => $sku,
+            'external_barcode' => (string) $this->first_not_empty($item, array('barcode', 'Barcode'), ''),
+            'external_product_id' => (string) $this->first_not_empty($item, array('hbSku', 'hepsiburadaSku'), ''),
+            'parent_key' => (string) $this->first_not_empty($item, array('variantGroupId', 'VaryantGroupID'), ''),
+            'variation_attributes' => array(),
+        );
+    }
     public function map_order($raw_item) { return new \WP_Error('multi_sync_hepsiburada_not_supported', 'Hepsiburada siparis aktarimi bu surumde desteklenmiyor.'); }
-    public function build_price_inventory_item_from_product($product, $sync_stock = true, $sync_price = true) { return null; }
-    public function push_price_inventory_updates($supplier, $items) { return new \WP_Error('multi_sync_hepsiburada_not_supported', 'Hepsiburada stok/fiyat gonderimi bu surumde desteklenmiyor.'); }
+    public function build_price_inventory_item_from_product($product, $sync_stock = true, $sync_price = true, $commission_rate = null)
+    {
+        if (!$product || !is_callable(array($product, 'get_sku'))) return null;
+        $sku = is_callable(array($product, 'get_meta')) ? trim((string) $product->get_meta('_multi_sync_external_sku', true)) : '';
+        if ($sku === '') $sku = trim((string) $product->get_sku());
+        if ($sku === '') return null;
+
+        $item = array('merchantSku' => $this->stock_code($sku));
+        if ($sync_stock) $item['availableStock'] = max(0, (int) $product->get_stock_quantity());
+        if ($sync_price) {
+            $regular_raw = is_numeric($product->get_regular_price()) ? (float) $product->get_regular_price() : 0.0;
+            $sale_raw = is_callable(array($product, 'get_sale_price')) ? $product->get_sale_price() : '';
+            $price_raw = is_numeric($sale_raw) && (float) $sale_raw > 0 ? (float) $sale_raw : $regular_raw;
+            $price = $this->apply_product_commission($price_raw, $product, $commission_rate);
+            if ($price <= 0) return null;
+            $item['price'] = number_format($price, 2, '.', '');
+        }
+        return $item;
+    }
+
+    public function push_price_inventory_updates($supplier, $items)
+    {
+        $check = $this->validate_credentials($supplier);
+        if (is_wp_error($check)) return $check;
+        if (!$items) return array();
+
+        $body = '<?xml version="1.0" encoding="UTF-8"?><listings>';
+        foreach ((array) $items as $item) {
+            $body .= '<listing><MerchantSku>' . esc_html((string) ($item['merchantSku'] ?? '')) . '</MerchantSku>';
+            if (array_key_exists('price', $item)) $body .= '<Price>' . esc_html(str_replace('.', ',', (string) $item['price'])) . '</Price>';
+            if (array_key_exists('availableStock', $item)) $body .= '<AvailableStock>' . (int) $item['availableStock'] . '</AvailableStock>';
+            $body .= '</listing>';
+        }
+        $body .= '</listings>';
+
+        $url = $this->listing_api_base($supplier) . '/listings/merchantid/' . rawurlencode($this->get_seller_id($supplier)) . '/inventory-uploads';
+        $headers = $this->build_default_headers($supplier);
+        $headers['Content-Type'] = 'application/xml';
+        $headers['Accept'] = 'application/json';
+        $debug_entry = array(
+            'timestamp' => current_time('mysql'),
+            'supplier_id' => $this->get_supplier_row_id($supplier),
+            'marketplace_key' => $this->get_key(),
+            'operation' => 'POST ' . (string) parse_url($url, PHP_URL_PATH),
+            'request' => array('method' => 'POST', 'url' => $url, 'headers' => $this->sanitize_headers_for_debug($headers), 'body' => $this->truncate_debug_body($body)),
+            'response' => array(),
+        );
+        $response = wp_remote_request($url, array('method' => 'POST', 'timeout' => 60, 'headers' => $headers, 'body' => $body));
+        if (is_wp_error($response)) {
+            $debug_entry['response'] = array('error' => $response->get_error_message());
+            $this->store_http_debug($supplier, $debug_entry);
+            return $response;
+        }
+        $code = (int) wp_remote_retrieve_response_code($response);
+        $raw = wp_remote_retrieve_body($response);
+        $debug_entry['response'] = array('status_code' => $code, 'body' => $this->truncate_debug_body($raw));
+        $this->store_http_debug($supplier, $debug_entry);
+        if (in_array($code, array(401, 403), true)) return new \WP_Error('multi_sync_hepsiburada_forbidden', 'Hepsiburada yetkilendirmesi reddedildi. Secili ortam kullanici adi/sifre, Merchant ID ve Merchant Panel entegrator servis yetkisini kontrol edin.', array('code' => $code, 'body' => $raw));
+        if ($code >= 400) return new \WP_Error('multi_sync_hepsiburada_inventory_error', sprintf('Hepsiburada stok/fiyat gonderimi basarisiz oldu (%d): %s', $code, $raw), array('code' => $code, 'body' => $raw));
+        $data = json_decode($raw, true);
+        return is_array($data) ? $data : array('body' => $raw);
+    }
     public function get_batch_request_result($supplier, $batch_request_id)
     {
         $check = $this->validate_credentials($supplier);
