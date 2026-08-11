@@ -1332,7 +1332,7 @@ class RestApi
         }
 
         $masked = $params;
-        $sensitive_keys = array('api_key', 'api_secret', 'amazon_refresh_token', 'ptt_rest_api_key', 'ptt_access_token');
+        $sensitive_keys = array('api_key', 'api_secret', 'amazon_refresh_token', 'ptt_rest_api_key', 'ptt_access_token', 'hepsiburada_test_api_key', 'hepsiburada_test_api_secret');
         foreach ($sensitive_keys as $key) {
             if (isset($masked[$key])) {
                 $masked[$key] = $this->mask_sensitive_value($masked[$key]);

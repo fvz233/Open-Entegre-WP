@@ -10,6 +10,10 @@ CREATE TABLE IF NOT EXISTS {$wpdb->prefix}multi_sync_suppliers (
     amazon_refresh_token text,
     ptt_rest_api_key text,
     ptt_access_token text,
+    hepsiburada_environment varchar(10) DEFAULT 'production',
+    hepsiburada_test_api_key text,
+    hepsiburada_test_api_secret text,
+    hepsiburada_test_seller_id varchar(100) DEFAULT '',
     created_at datetime DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY  (id)
 ) {$charset_collate};

@@ -9,10 +9,36 @@ if (!defined('ABSPATH')) {
 class HepsiburadaMarketplace extends BaseMarketplace
 {
     const API_BASE = 'https://mpop.hepsiburada.com/product/api';
+    const TEST_API_BASE = 'https://mpop-sit.hepsiburada.com/product/api';
 
     public function get_key() { return 'hepsiburada'; }
 
     public function get_label() { return 'Hepsiburada'; }
+
+    protected function is_test_environment($supplier)
+    {
+        return $this->supplier_value($supplier, 'hepsiburada_environment') === 'test';
+    }
+
+    protected function get_api_key($supplier)
+    {
+        return $this->is_test_environment($supplier) ? trim((string) $this->supplier_value($supplier, 'hepsiburada_test_api_key')) : parent::get_api_key($supplier);
+    }
+
+    protected function get_api_secret($supplier)
+    {
+        return $this->is_test_environment($supplier) ? trim((string) $this->supplier_value($supplier, 'hepsiburada_test_api_secret')) : parent::get_api_secret($supplier);
+    }
+
+    protected function get_seller_id($supplier)
+    {
+        return $this->is_test_environment($supplier) ? trim((string) $this->supplier_value($supplier, 'hepsiburada_test_seller_id')) : parent::get_seller_id($supplier);
+    }
+
+    protected function api_base($supplier)
+    {
+        return $this->is_test_environment($supplier) ? self::TEST_API_BASE : self::API_BASE;
+    }
 
     protected function build_user_agent($supplier)
     {
@@ -23,7 +49,7 @@ class HepsiburadaMarketplace extends BaseMarketplace
     {
         $check = $this->validate_credentials($supplier);
         if (is_wp_error($check)) return $check;
-        $url = self::API_BASE . '/categories/get-all-categories?' . http_build_query(array(
+        $url = $this->api_base($supplier) . '/categories/get-all-categories?' . http_build_query(array(
             'leaf' => 'true', 'status' => 'active', 'available' => 'true', 'page' => 0, 'size' => 2000, 'version' => 1,
         ));
         $response = $this->request_json('GET', $url, $supplier);
@@ -45,7 +71,7 @@ class HepsiburadaMarketplace extends BaseMarketplace
     {
         $check = $this->validate_credentials($supplier);
         if (is_wp_error($check)) return $check;
-        $url = self::API_BASE . '/categories/' . rawurlencode((string) $category_id) . '/attributes?version=1';
+        $url = $this->api_base($supplier) . '/categories/' . rawurlencode((string) $category_id) . '/attributes?version=1';
         $response = $this->request_json('GET', $url, $supplier);
         if (is_wp_error($response)) return $response;
         $result = array();
@@ -55,7 +81,7 @@ class HepsiburadaMarketplace extends BaseMarketplace
             if ($id === '') continue;
             $values = array();
             if (strtolower((string) ($row['type'] ?? '')) === 'enum') {
-                $value_url = self::API_BASE . '/categories/' . rawurlencode((string) $category_id) . '/attributes/' . rawurlencode($id) . '/values?' . http_build_query(array('page' => 0, 'size' => 1000, 'version' => 1));
+                $value_url = $this->api_base($supplier) . '/categories/' . rawurlencode((string) $category_id) . '/attributes/' . rawurlencode($id) . '/values?' . http_build_query(array('page' => 0, 'size' => 1000, 'version' => 1));
                 $value_response = $this->request_json('GET', $value_url, $supplier);
                 if (is_wp_error($value_response)) return $value_response;
                 foreach ($this->extract_list($value_response['data'], array('data', 'values', 'items')) as $option) {
@@ -164,7 +190,7 @@ class HepsiburadaMarketplace extends BaseMarketplace
         $payload = array_map(function ($item) use ($merchant) {
             return array('categoryId' => (int) $item['categoryId'], 'merchant' => $merchant, 'attributes' => (array) $item['attributes']);
         }, array_values((array) $items));
-        return $this->request_multipart(self::API_BASE . '/products/import', $supplier, $payload);
+        return $this->request_multipart($this->api_base($supplier) . '/products/import', $supplier, $payload);
     }
 
     protected function request_multipart($url, $supplier, $items)

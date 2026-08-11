@@ -17,7 +17,11 @@ function Authorization({ supplier, onSupplierUpdate }) {
         seller_id: '',
         amazon_refresh_token: '',
         ptt_rest_api_key: '',
-        ptt_access_token: ''
+        ptt_access_token: '',
+        hepsiburada_environment: 'production',
+        hepsiburada_test_api_key: '',
+        hepsiburada_test_api_secret: '',
+        hepsiburada_test_seller_id: ''
     });
     const [loading, setLoading] = useState(false);
     const [msg, setMsg] = useState('');
@@ -31,6 +35,10 @@ function Authorization({ supplier, onSupplierUpdate }) {
             amazon_refresh_token: supplier.amazon_refresh_token || '',
             ptt_rest_api_key: supplier.ptt_rest_api_key || '',
             ptt_access_token: supplier.ptt_access_token || '',
+            hepsiburada_environment: supplier.hepsiburada_environment === 'test' ? 'test' : 'production',
+            hepsiburada_test_api_key: supplier.hepsiburada_test_api_key || '',
+            hepsiburada_test_api_secret: supplier.hepsiburada_test_api_secret || '',
+            hepsiburada_test_seller_id: supplier.hepsiburada_test_seller_id || '',
         });
     }, [supplier]);
 
@@ -45,6 +53,12 @@ function Authorization({ supplier, onSupplierUpdate }) {
                 amazon_refresh_token: isAmazon ? formData.amazon_refresh_token : '',
                 ptt_rest_api_key: isPttAvm ? formData.ptt_rest_api_key : '',
                 ptt_access_token: isPttAvm ? formData.ptt_access_token : '',
+                ...(isHepsiburada ? {
+                    hepsiburada_environment: formData.hepsiburada_environment,
+                    hepsiburada_test_api_key: formData.hepsiburada_test_api_key,
+                    hepsiburada_test_api_secret: formData.hepsiburada_test_api_secret,
+                    hepsiburada_test_seller_id: formData.hepsiburada_test_seller_id,
+                } : {}),
             };
 
             if (showSellerId) {
@@ -95,12 +109,26 @@ function Authorization({ supplier, onSupplierUpdate }) {
                 </p>
             </div>
 
+            {isHepsiburada && (
+                <div className="form-group">
+                    <label>Calisma Ortami</label>
+                    <select
+                        value={formData.hepsiburada_environment}
+                        onChange={e => setFormData({ ...formData, hepsiburada_environment: e.target.value })}
+                    >
+                        <option value="production">Canli (Production)</option>
+                        <option value="test">Test (SIT)</option>
+                    </select>
+                    <p style={{ margin: '6px 0 0', color: '#666' }}>Her iki ortamin bilgileri ayri kaydedilir; secili ortam tum Hepsiburada isteklerinde kullanilir.</p>
+                </div>
+            )}
+
             <div className="grid grid-2">
                 <div className="form-group">
                     <label>{isN11 ? 'App Key' : isPazarama ? 'Client ID' : isAmazon ? 'LWA Client ID' : isPttAvm || isHepsiburada ? 'Kullanici Adi' : 'API Key'}</label>
                     <input
-                        value={formData.api_key}
-                        onChange={e => setFormData({ ...formData, api_key: e.target.value })}
+                        value={isHepsiburada && formData.hepsiburada_environment === 'test' ? formData.hepsiburada_test_api_key : formData.api_key}
+                        onChange={e => setFormData({ ...formData, [isHepsiburada && formData.hepsiburada_environment === 'test' ? 'hepsiburada_test_api_key' : 'api_key']: e.target.value })}
                         placeholder={
                             isN11
                                 ? 'n11 App Key degeri'
@@ -123,8 +151,8 @@ function Authorization({ supplier, onSupplierUpdate }) {
                         <label>{isN11 ? 'App Secret' : isPazarama ? 'Client Secret' : isAmazon ? 'LWA Client Secret' : isPttAvm || isHepsiburada ? 'Sifre' : 'API Secret'}</label>
                         <input
                             type="password"
-                            value={formData.api_secret}
-                            onChange={e => setFormData({ ...formData, api_secret: e.target.value })}
+                            value={isHepsiburada && formData.hepsiburada_environment === 'test' ? formData.hepsiburada_test_api_secret : formData.api_secret}
+                            onChange={e => setFormData({ ...formData, [isHepsiburada && formData.hepsiburada_environment === 'test' ? 'hepsiburada_test_api_secret' : 'api_secret']: e.target.value })}
                             placeholder={
                                 isN11
                                     ? 'n11 App Secret degeri'
@@ -145,8 +173,8 @@ function Authorization({ supplier, onSupplierUpdate }) {
                     <div className="form-group">
                         <label>{isCiceksepeti ? 'Supplier ID (Opsiyonel)' : isAmazon ? 'Seller ID' : isHepsiburada ? 'Merchant ID' : 'Satici ID'}</label>
                         <input
-                            value={formData.seller_id}
-                            onChange={e => setFormData({ ...formData, seller_id: e.target.value })}
+                            value={isHepsiburada && formData.hepsiburada_environment === 'test' ? formData.hepsiburada_test_seller_id : formData.seller_id}
+                            onChange={e => setFormData({ ...formData, [isHepsiburada && formData.hepsiburada_environment === 'test' ? 'hepsiburada_test_seller_id' : 'seller_id']: e.target.value })}
                             placeholder={isCiceksepeti ? 'Ornek: 123456 (opsiyonel)' : isAmazon ? 'Ornek: A1BC2DEFGHIJKL' : isHepsiburada ? 'Hepsiburada Magaza ID' : 'Ornek: 123456'}
                         />
                     </div>

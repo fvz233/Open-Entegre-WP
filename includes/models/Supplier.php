@@ -112,6 +112,10 @@ class Supplier
             'amazon_refresh_token' => isset($defaults['amazon_refresh_token']) ? $defaults['amazon_refresh_token'] : '',
             'ptt_rest_api_key' => '',
             'ptt_access_token' => '',
+            'hepsiburada_environment' => 'production',
+            'hepsiburada_test_api_key' => '',
+            'hepsiburada_test_api_secret' => '',
+            'hepsiburada_test_seller_id' => '',
         ));
 
         return $this->get($id);
@@ -174,9 +178,13 @@ class Supplier
                 'seller_id' => isset($data['seller_id']) ? $this->sanitize_credential_value($data['seller_id']) : '',
                 'amazon_refresh_token' => isset($data['amazon_refresh_token']) ? $this->sanitize_credential_value($data['amazon_refresh_token']) : '',
                 'ptt_rest_api_key' => isset($data['ptt_rest_api_key']) ? $this->sanitize_credential_value($data['ptt_rest_api_key']) : '',
-                'ptt_access_token' => isset($data['ptt_access_token']) ? $this->sanitize_credential_value($data['ptt_access_token']) : ''
+                'ptt_access_token' => isset($data['ptt_access_token']) ? $this->sanitize_credential_value($data['ptt_access_token']) : '',
+                'hepsiburada_environment' => isset($data['hepsiburada_environment']) && $data['hepsiburada_environment'] === 'test' ? 'test' : 'production',
+                'hepsiburada_test_api_key' => isset($data['hepsiburada_test_api_key']) ? $this->sanitize_credential_value($data['hepsiburada_test_api_key']) : '',
+                'hepsiburada_test_api_secret' => isset($data['hepsiburada_test_api_secret']) ? $this->sanitize_credential_value($data['hepsiburada_test_api_secret']) : '',
+                'hepsiburada_test_seller_id' => isset($data['hepsiburada_test_seller_id']) ? $this->sanitize_credential_value($data['hepsiburada_test_seller_id']) : ''
             ),
-            array('%s', '%s', '%d', '%f', '%s', '%s', '%s', '%s', '%s', '%s', '%s')
+            array('%s', '%s', '%d', '%f', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')
         );
         return $wpdb->insert_id;
     }
@@ -237,6 +245,18 @@ class Supplier
         if (isset($data['ptt_access_token'])) {
             $fields['ptt_access_token'] = $this->sanitize_credential_value($data['ptt_access_token']);
             $formats[] = '%s';
+        }
+
+        if (isset($data['hepsiburada_environment'])) {
+            $fields['hepsiburada_environment'] = $data['hepsiburada_environment'] === 'test' ? 'test' : 'production';
+            $formats[] = '%s';
+        }
+
+        foreach (array('hepsiburada_test_api_key', 'hepsiburada_test_api_secret', 'hepsiburada_test_seller_id') as $field) {
+            if (isset($data[$field])) {
+                $fields[$field] = $this->sanitize_credential_value($data[$field]);
+                $formats[] = '%s';
+            }
         }
 
         if (empty($fields)) {

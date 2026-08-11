@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Open Entegre
  * Description: WooCommerce icin birden fazla dis pazar yerine baglanabilen esnek senkronizasyon eklentisi.
- * Version: 1.0.66
+ * Version: 1.0.67
  * Author: Fevzi Demirtaş
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -60,7 +60,7 @@ function multi_sync_redact_debug_value($value, $key = '')
     return $value;
 }
 
-define('MULTI_SYNC_VERSION', '1.0.66');
+define('MULTI_SYNC_VERSION', '1.0.67');
 define('MULTI_SYNC_SCHEMA_VERSION', '20260802-2');
 define('MULTI_SYNC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MULTI_SYNC_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -335,6 +335,10 @@ function multi_sync_ensure_supplier_marketplace_columns()
         'amazon_refresh_token' => "ALTER TABLE {$table_name} ADD COLUMN amazon_refresh_token TEXT NULL AFTER seller_id",
         'ptt_rest_api_key' => "ALTER TABLE {$table_name} ADD COLUMN ptt_rest_api_key TEXT NULL AFTER amazon_refresh_token",
         'ptt_access_token' => "ALTER TABLE {$table_name} ADD COLUMN ptt_access_token TEXT NULL AFTER ptt_rest_api_key",
+        'hepsiburada_environment' => "ALTER TABLE {$table_name} ADD COLUMN hepsiburada_environment VARCHAR(10) DEFAULT 'production' AFTER ptt_access_token",
+        'hepsiburada_test_api_key' => "ALTER TABLE {$table_name} ADD COLUMN hepsiburada_test_api_key TEXT NULL AFTER hepsiburada_environment",
+        'hepsiburada_test_api_secret' => "ALTER TABLE {$table_name} ADD COLUMN hepsiburada_test_api_secret TEXT NULL AFTER hepsiburada_test_api_key",
+        'hepsiburada_test_seller_id' => "ALTER TABLE {$table_name} ADD COLUMN hepsiburada_test_seller_id VARCHAR(100) DEFAULT '' AFTER hepsiburada_test_api_secret",
     );
 
     foreach ($columns as $column => $sql) {

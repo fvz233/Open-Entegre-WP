@@ -18,6 +18,7 @@ function esc_url_raw($value) { return (string) $value; }
 function wp_json_encode($value, $flags = 0) { return json_encode($value, $flags); }
 function wp_strip_all_tags($value) { return strip_tags($value); }
 function wp_generate_password($length = 12) { return str_repeat('x', $length); }
+function current_time($type) { return '2026-01-01 00:00:00'; }
 function wp_get_attachment_url($id) { return $id ? 'http://example.test/' . $id . '.jpg' : ''; }
 function wp_remote_request($url, $args) { $GLOBALS['hepsiburada_request'] = array('url' => $url, 'args' => $args); return array('code' => 200, 'body' => '{"success":true,"data":{"trackingId":"tracking-1"}}'); }
 function wp_remote_retrieve_response_code($response) { return $response['code']; }
@@ -58,6 +59,7 @@ class HepsiburadaFixture extends MultiSync\Marketplaces\HepsiburadaMarketplace
     public $responses = array();
     protected function request_json($method, $url, $supplier, $body = null) { return array_shift($this->responses); }
     public function multipart($items) { return $this->build_multipart_body($items, 'Boundary'); }
+    public function api_base_for($supplier) { return $this->api_base($supplier); }
 }
 
 class HepsiburadaParentProduct extends MarketplacePublishProduct
@@ -141,6 +143,10 @@ $multipart = $hepsiburada->multipart(array(array('categoryId' => 123, 'merchant'
 check(strpos($multipart, 'filename="products.json"') !== false && strpos($multipart, '"merchant":"merchant-1"') !== false, 'Hepsiburada multipart JSON failed.');
 $hb_result = $hepsiburada->push_products((object) array('api_key' => 'user', 'api_secret' => 'pass', 'seller_id' => 'merchant-1'), array($hb_item));
 check($hb_result['trackingId'] === 'tracking-1' && strpos($GLOBALS['hepsiburada_request']['args']['body'], '"merchant":"merchant-1"') !== false, 'Hepsiburada tracking ID or merchant upload failed.');
+$hb_test_supplier = (object) array('hepsiburada_environment' => 'test', 'hepsiburada_test_api_key' => 'test-user', 'hepsiburada_test_api_secret' => 'test-pass', 'hepsiburada_test_seller_id' => 'test-merchant');
+check($hepsiburada->api_base_for($hb_test_supplier) === 'https://mpop-sit.hepsiburada.com/product/api', 'Hepsiburada SIT API base failed.');
+$hepsiburada->push_products($hb_test_supplier, array($hb_item));
+check(strpos($GLOBALS['hepsiburada_request']['url'], 'https://mpop-sit.hepsiburada.com/product/api/products/import') === 0 && $GLOBALS['hepsiburada_request']['args']['headers']['Authorization'] === 'Basic ' . base64_encode('test-user:test-pass') && strpos($GLOBALS['hepsiburada_request']['args']['body'], '"merchant":"test-merchant"') !== false, 'Hepsiburada SIT credentials or endpoint failed.');
 
 $hepsiburada->responses = array(
     array('data' => array('data' => array(array('id' => 'brand', 'name' => 'Marka', 'mandatory' => true, 'type' => 'enum')))),
