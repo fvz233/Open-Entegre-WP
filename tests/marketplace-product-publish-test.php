@@ -157,7 +157,7 @@ $n11_fixture = new N11Fixture();
 $n11_fixture->push_products((object) array(), array($n11_variation, array_merge($n11_variation, array('stockCode' => 'BLACK-SKU'))));
 check(count($n11_fixture->body['payload']['skus']) === 2 && count(array_unique(array_column($n11_fixture->body['payload']['skus'], 'productMainId'))) === 1, 'n11 variants were not sent as sibling SKUs under one productMainId.');
 $n11_fixture->push_product_updates((object) array(), array($n11_fixture->build_product_update_item($n11_variation)));
-check($n11_fixture->body['payload']['skus'][0]['productMainId'] === 'PARENT-SKU' && $n11_fixture->body['payload']['skus'][0]['deleteProductMainId'] === false, 'n11 existing variation regroup update failed.');
+check($n11_fixture->body['payload']['skus'][0]['productMainId'] === 'PARENT-SKU' && $n11_fixture->body['payload']['skus'][0]['deleteProductMainId'] === true, 'n11 existing variation regroup update failed.');
 check(MultiSync\Sync\ProductPublisher::n11_batch_verdict(array('status' => 'IN_QUEUE')) === 'pending', 'n11 queued task was treated as complete.');
 check(MultiSync\Sync\ProductPublisher::n11_batch_verdict(array('status' => 'PROCESSED', 'skus' => array('content' => array(array('status' => 'SUCCESS'))))) === 'completed', 'n11 successful task was not completed.');
 check(MultiSync\Sync\ProductPublisher::n11_batch_verdict(array('status' => 'PROCESSED', 'skus' => array('content' => array(array('status' => 'SUCCESS'), array('status' => 'FAIL'))))) === 'failed', 'n11 failed SKU was treated as complete.');

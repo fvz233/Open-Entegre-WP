@@ -467,7 +467,7 @@ class N11Marketplace extends BaseMarketplace
     {
         return array_intersect_key((array) $create_item, array_flip(array(
             'stockCode', 'preparingDay', 'shipmentTemplate', 'productMainId', 'description', 'vatRate', 'attributes',
-        ))) + array('deleteProductMainId' => false);
+        ))) + array('deleteProductMainId' => true);
     }
 
     public function push_product_updates($supplier, $items)
