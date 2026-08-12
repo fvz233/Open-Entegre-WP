@@ -97,6 +97,13 @@ $n11 = (new MultiSync\Marketplaces\N11Marketplace())->build_product_item_from_pr
 ));
 check(!is_wp_error($n11) && $n11['stockCode'] === '8690000000001' && $n11['attributes'][0]['valueId'] === 99 && $n11['salePrice'] === 111.0 && $n11['shipmentTemplate'] === 'Global Standart', 'n11 product payload failed.');
 check($n11['images'][0]['url'] === 'http://example.test/7.jpg', 'n11 HTTP image mapping failed.');
+$n11_brand_mapping = (new MultiSync\Marketplaces\N11Marketplace())->build_product_item_from_product($product, array(
+    'shipment_template' => 'Global Standart',
+    'brand_id' => '99',
+    'brand_name' => 'Demsu',
+    'attribute_definitions' => array(array('id' => '1', 'name' => 'Marka', 'required' => true, 'values' => array(array('id' => '99', 'name' => 'Demsu')))),
+), array('category_id' => '100', 'vat_rate' => '20'));
+check(!is_wp_error($n11_brand_mapping) && $n11_brand_mapping['attributes'][0]['valueId'] === 99, 'n11 brand mapping was not reused for category attribute.');
 $n11_commission = (new MultiSync\Marketplaces\N11Marketplace())->build_price_inventory_item_from_product($product, false, true, 10);
 check($n11_commission['listPrice'] === 133.0 && $n11_commission['salePrice'] === 111.0, 'Category commission was not applied to marketplace prices.');
 

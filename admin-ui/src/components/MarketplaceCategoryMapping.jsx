@@ -231,7 +231,9 @@ function MarketplaceCategoryMapping({ supplier, onSupplierUpdate }) {
                             (attribute.slicer || attribute.varianter) && 'varyasyon',
                             !attribute.required && !attribute.slicer && !attribute.varianter && 'isteğe bağlı',
                         ].filter(Boolean).join(', ')})
-                        {attribute.values.length ? (
+                        {supplier.marketplace_key === 'n11' && attribute.name.trim().toLocaleLowerCase('tr-TR') === 'marka' ? (
+                            <small style={{ display: 'block' }}>Marka eşlemesinden alınır.</small>
+                        ) : attribute.values.length ? (
                             <select value={values[attribute.id] || ''} onChange={e => setValues({ ...values, [attribute.id]: e.target.value })}>
                                 <option value="">Preview'da ürün bazında doldur</option>
                                 {attribute.values.map(value => <option key={value.id} value={value.id}>{value.name}</option>)}
