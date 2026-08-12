@@ -232,7 +232,7 @@ function MarketplaceCategoryMapping({ supplier, onSupplierUpdate }) {
                             !attribute.required && !attribute.slicer && !attribute.varianter && 'isteğe bağlı',
                         ].filter(Boolean).join(', ')})
                         {supplier.marketplace_key === 'n11' && attribute.name.trim().toLocaleLowerCase('tr-TR') === 'marka' ? (
-                            <small style={{ display: 'block' }}>Marka eşlemesinden alınır.</small>
+                            <small style={{ display: 'block' }}>WooCommerce marka adından alınır.</small>
                         ) : attribute.values.length ? (
                             <select value={values[attribute.id] || ''} onChange={e => setValues({ ...values, [attribute.id]: e.target.value })}>
                                 <option value="">Preview'da ürün bazında doldur</option>
@@ -264,7 +264,7 @@ function MarketplaceCategoryMapping({ supplier, onSupplierUpdate }) {
                     </div>
                 ))}
             </div>
-            <div style={sectionStyle}>
+            {supplier.marketplace_key !== 'n11' && <div style={sectionStyle}>
                 <h4>{marketplace} Marka Eşlemesi</h4>
                 {wooBrands.length === 0 ? (
                     <small>WooCommerce marka taksonomisi bulunamadı. Önce ürün markalarını oluşturun.</small>
@@ -307,7 +307,7 @@ function MarketplaceCategoryMapping({ supplier, onSupplierUpdate }) {
                         <button type="button" onClick={() => removeBrand(brandKey)} disabled={loading}>Sil</button>
                     </div>
                 ))}
-            </div>
+            </div>}
             {supplier.marketplace_key === 'n11' && (
                 <div style={sectionStyle}>
                     <h4 style={{ marginTop: 0 }}>n11 Genel Ayarları</h4>

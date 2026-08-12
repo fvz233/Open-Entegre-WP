@@ -67,6 +67,7 @@ assert.match(categoryMappingSource, /onClick=\{\(\) => selectWooCategory\(catego
 assert.match(categoryMappingSource, /attribute\.required && 'zorunlu'/);
 assert.match(categoryMappingSource, /attribute\.slicer \|\| attribute\.varianter/);
 assert.match(categoryMappingSource, /'isteğe bağlı'/);
-assert.match(categoryMappingSource, /supplier\.marketplace_key === 'n11'.*Marka eşlemesinden alınır\./s);
+assert.match(categoryMappingSource, /supplier\.marketplace_key === 'n11'.*WooCommerce marka adından alınır\./s);
+assert.match(categoryMappingSource, /supplier\.marketplace_key !== 'n11' && <div style=\{sectionStyle\}>/);
 
 console.log('api-test: ok');

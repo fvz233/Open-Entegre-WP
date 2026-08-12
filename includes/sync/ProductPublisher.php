@@ -653,10 +653,10 @@ class ProductPublisher
         if ($category_id !== '' && !array_key_exists('commission_rate', $mapping) && isset($context['commission_rates'][$category_id])) {
             $mapping['commission_rate'] = (float) $context['commission_rates'][$category_id];
         }
-        $mapping = array_merge($mapping, $this->brand_mapping($product, $context['brand_mappings']));
-        if ($product->is_type('variation') && empty($mapping['brand_id']) && empty($mapping['brand_name'])) {
-            $parent = wc_get_product($product->get_parent_id());
-            $brand = $parent ? $this->woo_product_brand($parent) : '';
+        if ($context['marketplace_key'] !== 'n11') $mapping = array_merge($mapping, $this->brand_mapping($product, $context['brand_mappings']));
+        if ($context['marketplace_key'] === 'n11' && empty($mapping['brand_id']) && empty($mapping['brand_name'])) {
+            $parent = $product->is_type('variation') ? wc_get_product($product->get_parent_id()) : null;
+            $brand = $this->woo_product_brand($parent ?: $product);
             if ($brand !== '') $mapping['brand_name'] = $brand;
         }
         return $mapping;
@@ -692,6 +692,12 @@ class ProductPublisher
 
     private function woo_product_brand($product)
     {
+        foreach (get_object_taxonomies('product') as $taxonomy) {
+            $normalized = strtolower((string) $taxonomy);
+            if (strpos($normalized, 'brand') === false && strpos($normalized, 'marka') === false) continue;
+            $terms = wp_get_object_terms($product->get_id(), $taxonomy);
+            if (!is_wp_error($terms) && !empty($terms[0]->name)) return trim((string) $terms[0]->name);
+        }
         foreach (array_keys((array) $product->get_attributes()) as $name) {
             $label = function_exists('wc_attribute_label') ? wc_attribute_label($name, $product) : $name;
             $normalized = mb_strtolower((string) $label, 'UTF-8');

@@ -413,7 +413,7 @@ class N11Marketplace extends BaseMarketplace
             }
             $input = $value('attribute_' . $id);
             if ($input === '') $input = $mapped_attributes[$id] ?? '';
-            if ($input === '' && $this->normalized_name($definition['name'] ?? '') === 'marka') $input = (string) ($category_mapping['brand_id'] ?? $category_mapping['brand_name'] ?? '');
+            if ($input === '' && $this->normalized_name($definition['name'] ?? '') === 'marka') $input = (string) (($category_mapping['brand_id'] ?? '') ?: ($category_mapping['brand_name'] ?? ''));
             $is_variation_target = $selected_variation_target === (int) $id;
             if ($is_variation_target && $variation_value !== '' && empty($overrides['attribute_' . $id])) {
                 $input = $variation_value;

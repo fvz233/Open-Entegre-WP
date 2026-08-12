@@ -48,6 +48,8 @@ class PublishProduct
     public function get_short_description() { return ''; }
     public function get_name() { return 'Product'; }
     public function get_id() { return 77; }
+    public function get_category_ids() { return array(3); }
+    public function get_attributes() { return array(); }
 }
 
 class PublishTrendyolFixture extends MultiSync\Marketplaces\TrendyolMarketplace
@@ -174,6 +176,13 @@ $manual_commission = $product_mapping_method->invoke(new MultiSync\Sync\ProductP
     'marketplace_key' => 'trendyol',
 ));
 check($manual_commission['commission_rate'] === 10, 'Manual category commission must override the API rate.');
+$n11_brand_fallback = $product_mapping_method->invoke(new MultiSync\Sync\ProductPublisher(), new PublishProduct(), array(
+    'mappings' => array(3 => array('category_id' => 30)),
+    'brand_mappings' => array('product_brand:5' => array('brand_id' => '12', 'brand_name' => 'Eski Esleme')),
+    'commission_rates' => array(),
+    'marketplace_key' => 'n11',
+));
+check($n11_brand_fallback['brand_name'] === 'Demsu' && empty($n11_brand_fallback['brand_id']), 'n11 did not use the WooCommerce brand name directly.');
 $attribute_fields_method = new ReflectionMethod(MultiSync\Sync\ProductPublisher::class, 'attribute_fields');
 $attribute_fields_method->setAccessible(true);
 $attribute_fields = $attribute_fields_method->invoke(new MultiSync\Sync\ProductPublisher(), array(

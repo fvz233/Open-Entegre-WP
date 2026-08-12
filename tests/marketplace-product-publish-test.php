@@ -134,6 +134,13 @@ $n11_brand_mapping = (new MultiSync\Marketplaces\N11Marketplace())->build_produc
     'attribute_definitions' => array(array('id' => '1', 'name' => 'Marka', 'required' => true, 'values' => array(array('id' => '99', 'name' => 'Demsu')))),
 ), array('category_id' => '100', 'vat_rate' => '20'));
 check(!is_wp_error($n11_brand_mapping) && $n11_brand_mapping['attributes'][0]['valueId'] === 99, 'n11 brand mapping was not reused for category attribute.');
+$n11_custom_brand = (new MultiSync\Marketplaces\N11Marketplace())->build_product_item_from_product($product, array(
+    'shipment_template' => 'Global Standart',
+    'brand_id' => '',
+    'brand_name' => 'Kendi Markamiz',
+    'attribute_definitions' => array(array('id' => '1', 'name' => 'Marka', 'required' => true, 'allow_custom' => true, 'values' => array())),
+), array('category_id' => '100', 'vat_rate' => '20'));
+check(!is_wp_error($n11_custom_brand) && $n11_custom_brand['attributes'][0] === array('id' => 1, 'valueId' => null, 'customValue' => 'Kendi Markamiz'), 'n11 custom brand name was not sent without a brand ID.');
 $n11_commission = (new MultiSync\Marketplaces\N11Marketplace())->build_price_inventory_item_from_product($product, false, true, 10);
 check($n11_commission['listPrice'] === 133.0 && $n11_commission['salePrice'] === 111.0, 'Category commission was not applied to marketplace prices.');
 $GLOBALS['woo_products'] = array(31 => new N11VariableParent(), 41 => new N11VariationProduct(41, 'COLORFULL-SKU'), 42 => new N11VariationProduct(42, 'BLACK-SKU'));
@@ -200,6 +207,8 @@ $hepsiburada_mapping = array(
     'attributes' => array(array('attributeId' => 'material', 'attributeValueIds' => array('steel'))),
     'attribute_definitions' => array(
         array('id' => 'material', 'name' => 'Materyal', 'required' => true, 'values' => array(array('id' => 'steel', 'name' => 'Çelik'))),
+        array('id' => 'package-front', 'name' => 'Paket Görseli (ön)', 'required' => true, 'values' => array()),
+        array('id' => 'package-back', 'name' => 'Paket Görseli (arka)', 'required' => true, 'values' => array()),
     ),
 );
 $hb_item = $hepsiburada->build_product_item_from_product($product, $hepsiburada_mapping);
@@ -238,11 +247,11 @@ check(MultiSync\Sync\ProductPublisher::ciceksepeti_batch_verdict($hb_status) ===
 check(MultiSync\Sync\ProductPublisher::ciceksepeti_batch_verdict(array('success' => false)) === 'failed', 'Hepsiburada failed status was treated as complete.');
 
 $hepsiburada->responses = array(
-    array('data' => array('data' => array('attributes' => array(array('id' => 'material', 'name' => 'Materyal', 'mandatory' => true, 'type' => 'enum')), 'variantAttributes' => array(array('id' => 'color', 'name' => 'Renk', 'mandatory' => false, 'type' => 'string'))))),
+    array('data' => array('data' => array('attributes' => array(array('id' => 'material', 'name' => 'Materyal', 'mandatory' => true, 'type' => 'enum'), array('id' => 'package-front', 'name' => 'Paket Görseli (ön)', 'mandatory' => true, 'type' => 'string')), 'variantAttributes' => array(array('id' => 'color', 'name' => 'Renk', 'mandatory' => false, 'type' => 'string'))))),
     array('data' => array('totalPages' => 1, 'data' => array(array('value' => 'Çelik')))),
 );
 $hb_attributes = $hepsiburada->fetch_category_attributes((object) array('api_key' => 'user', 'api_secret' => 'pass', 'seller_id' => 'merchant', 'hepsiburada_developer_username' => 'developer-user'), '123');
-check(count($hb_attributes) === 2 && $hb_attributes[0]['required'] === true && $hb_attributes[0]['values'][0]['id'] === 'Çelik' && $hb_attributes[1]['varianter'] === true, 'Hepsiburada category attributes failed.');
+check(count($hb_attributes) === 3 && $hb_attributes[0]['required'] === true && $hb_attributes[0]['values'][0]['id'] === 'Çelik' && $hb_attributes[1]['required'] === false && $hb_attributes[2]['varianter'] === true, 'Hepsiburada category attributes failed.');
 check(strpos($GLOBALS['hepsiburada_json_request']['url'], '/attribute/material/values?version=5') !== false, 'Hepsiburada attribute values endpoint failed.');
 $hb_supplier = (object) array('api_key' => 'user', 'api_secret' => 'pass', 'seller_id' => 'merchant', 'hepsiburada_developer_username' => 'developer-user');
 check($hepsiburada->user_agent_for($hb_supplier) === 'developer-user', 'Hepsiburada variable User-Agent failed.');
