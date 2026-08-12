@@ -158,7 +158,7 @@ class N11Marketplace extends BaseMarketplace
             'preview_image' => !empty($images) ? $images[0] : '',
             'external_sku' => $sku,
             'external_barcode' => (string) $this->first_not_empty($item, array('barcode'), ''),
-            'external_product_id' => (string) $this->first_not_empty($item, array('id', 'productId'), ''),
+            'external_product_id' => (string) $this->first_not_empty($item, array('n11ProductId', 'id', 'productId'), ''),
             'parent_key' => (string) $this->first_not_empty($item, array('productMainId'), ''),
             'variation_attributes' => $this->map_variation_attributes($this->first_not_empty($item, array('attributes'), array())),
         );
@@ -372,7 +372,7 @@ class N11Marketplace extends BaseMarketplace
             return $stored !== '' ? $stored : $fallback;
         };
         $sku = $value('sku', $product->get_sku());
-        $barcode = $value('barcode', $sku);
+        $barcode = $value('barcode') ?: null;
         $model = $value('product_main_id', $parent ? $parent->get_sku() : $sku);
         $category_id = $value('category_id', $category_mapping['category_id'] ?? '');
         $shipment = $value('shipment_template', $category_mapping['shipment_template'] ?? '');
@@ -460,6 +460,19 @@ class N11Marketplace extends BaseMarketplace
     public function push_products($supplier, $items)
     {
         $response = $this->request_json('POST', 'https://api.n11.com/ms/product/tasks/product-create', $supplier, array('payload' => array('integrator' => self::INTEGRATOR_NAME, 'skus' => array_values($items))));
+        return is_wp_error($response) ? $response : $response['data'];
+    }
+
+    public function build_product_update_item($create_item)
+    {
+        return array_intersect_key((array) $create_item, array_flip(array(
+            'stockCode', 'preparingDay', 'shipmentTemplate', 'productMainId', 'description', 'vatRate', 'attributes',
+        ))) + array('deleteProductMainId' => false);
+    }
+
+    public function push_product_updates($supplier, $items)
+    {
+        $response = $this->request_json('POST', 'https://api.n11.com/ms/product/tasks/product-update', $supplier, array('payload' => array('integrator' => self::INTEGRATOR_NAME, 'skus' => array_values($items))));
         return is_wp_error($response) ? $response : $response['data'];
     }
 

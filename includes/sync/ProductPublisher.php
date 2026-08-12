@@ -119,7 +119,7 @@ class ProductPublisher
         $supplier = $context['supplier'];
         $marketplace_key = (string) $context['marketplace_key'];
         if ($marketplace_key === 'n11') {
-            $product_ids = $this->expand_variation_product_ids($product_ids);
+            $product_ids = $this->expand_variation_product_ids($product_ids, $overrides);
         }
         $supports_update = is_callable(array($adapter, 'build_price_inventory_item_from_product'))
             && is_callable(array($adapter, 'push_price_inventory_updates'));
@@ -128,6 +128,7 @@ class ProductPublisher
         $catalog_products = is_array($catalog) ? $catalog : array();
 
         $create_payloads = array();
+        $product_update_payloads = array();
         $update_payloads = array();
         $create_ids = array();
         $update_ids = array();
@@ -138,6 +139,18 @@ class ProductPublisher
                 ? $overrides[$product->get_id()]
                 : array();
             $mapping = $this->product_mapping($product, $context);
+
+            if ($marketplace_key === 'n11' && $this->is_published($product, $context, $catalog_products)
+                && is_callable(array($adapter, 'build_product_update_item')) && is_callable(array($adapter, 'push_product_updates'))) {
+                $payload = $this->build_payload($adapter, $product, $mapping, $product_overrides);
+                if (is_wp_error($payload)) {
+                    $skipped[] = array('id' => $product->get_id(), 'message' => $payload->get_error_message());
+                    continue;
+                }
+                $product_update_payloads[] = $adapter->build_product_update_item($payload);
+                $update_ids[] = (int) $product->get_id();
+                continue;
+            }
 
             if ($supports_update && !$product_overrides && $this->is_published($product, $context, $catalog_products)) {
                 $item = $adapter->build_price_inventory_item_from_product($product, true, true, isset($mapping['commission_rate']) ? $mapping['commission_rate'] : null);
@@ -166,7 +179,7 @@ class ProductPublisher
             $create_ids[] = (int) $product->get_id();
         }
 
-        $total = count($create_payloads) + count($update_payloads);
+        $total = count($create_payloads) + count($product_update_payloads) + count($update_payloads);
         // ponytail: one marketplace batch per action; add chunked jobs when a store needs more than 1,000 publishable products.
         if ($total > 1000) {
             return new \WP_Error('multi_sync_product_batch_too_large', 'Tek seferde en fazla 1000 urun gonderilebilir.');
@@ -201,12 +214,26 @@ class ProductPublisher
             $this->mark_published($update_ids, $marketplace_key);
         }
 
+        if (!empty($product_update_payloads)) {
+            $result = $adapter->push_product_updates($supplier, $product_update_payloads);
+            if (is_wp_error($result)) {
+                return $result;
+            }
+            $task_id = trim((string) ($result['id'] ?? ''));
+            if ($task_id !== '' && $this->confirm_batch_status($adapter, $supplier, $task_id, 'n11') === 'failed') {
+                return new \WP_Error('multi_sync_n11_batch_failed', 'n11 urun guncelleme kuyrugu islemi reddetti (batch ' . $task_id . ').');
+            }
+            $updated += count($product_update_payloads);
+            $response = $response === null ? $result : $response;
+            $this->mark_published($update_ids, $marketplace_key);
+        }
+
         $batch_status = '';
-        if ($marketplace_key === 'ciceksepeti' && !empty($create_payloads)
+        if (in_array($marketplace_key, array('ciceksepeti', 'n11'), true) && !empty($create_payloads)
             && is_callable(array($adapter, 'get_batch_request_result')) && is_array($response)) {
-            $batch_id = trim((string) ($response['batchId'] ?? $response['batchRequestId'] ?? ''));
+            $batch_id = trim((string) ($response['batchId'] ?? $response['batchRequestId'] ?? $response['id'] ?? ''));
             if ($batch_id !== '') {
-                $batch_status = $this->confirm_batch_status($adapter, $supplier, $batch_id);
+                $batch_status = $this->confirm_batch_status($adapter, $supplier, $batch_id, $marketplace_key);
                 if ($batch_status === 'completed') {
                     $this->mark_published($create_ids, $marketplace_key);
                 } elseif ($batch_status === 'failed') {
@@ -215,11 +242,11 @@ class ProductPublisher
                         $adapter->clear_request_cache($supplier);
                     }
                     return new \WP_Error(
-                        'multi_sync_ciceksepeti_batch_failed',
-                        'Ciceksepeti islem kuyrugu urunleri reddetti (batch ' . $batch_id . ').',
+                        'multi_sync_' . $marketplace_key . '_batch_failed',
+                        $adapter->get_label() . ' islem kuyrugu urunleri reddetti (batch ' . $batch_id . ').',
                         array('batch_id' => $batch_id)
                     );
-                } elseif ($batch_status === 'pending') {
+                } elseif ($batch_status === 'pending' && $marketplace_key === 'ciceksepeti') {
                     self::schedule_batch_poll((int) $supplier_id, $batch_id, $create_ids);
                 }
             }
@@ -236,13 +263,22 @@ class ProductPublisher
         );
     }
 
-    private function confirm_batch_status($adapter, $supplier, $batch_id)
+    private function confirm_batch_status($adapter, $supplier, $batch_id, $marketplace_key = '')
     {
         $data = $adapter->get_batch_request_result($supplier, $batch_id);
         if (is_wp_error($data)) {
             return 'pending';
         }
-        return self::ciceksepeti_batch_verdict($data);
+        return $marketplace_key === 'n11' ? self::n11_batch_verdict($data) : self::ciceksepeti_batch_verdict($data);
+    }
+
+    public static function n11_batch_verdict($data)
+    {
+        $status = strtoupper((string) ($data['status'] ?? ''));
+        $json = strtoupper((string) json_encode($data['skus']['content'] ?? $data));
+        if ($status === 'REJECT' || strpos($json, '"STATUS":"FAIL"') !== false) return 'failed';
+        if ($status === 'PROCESSED' && strpos($json, '"STATUS":"SUCCESS"') !== false) return 'completed';
+        return 'pending';
     }
 
     public static function ciceksepeti_batch_verdict($data)
@@ -741,16 +777,23 @@ class ProductPublisher
         return $products;
     }
 
-    private function expand_variation_product_ids($product_ids)
+    private function expand_variation_product_ids($product_ids, &$overrides = array())
     {
         $expanded = array();
+        $family_overrides = array();
         foreach (array_filter(array_map('absint', (array) $product_ids)) as $product_id) {
             $product = wc_get_product($product_id);
             if ($product && $product->is_type('variation')) {
+                if (!empty($overrides[$product_id])) {
+                    $family_overrides[$product->get_parent_id()] = array_intersect_key($overrides[$product_id], array_flip(array('variation_attribute', 'variation_target_attribute_id')));
+                }
                 $product = wc_get_product($product->get_parent_id());
             }
             if ($product && $product->is_type('variable')) {
                 $expanded = array_merge($expanded, $product->get_children());
+                foreach ($product->get_children() as $variation_id) {
+                    $overrides[$variation_id] = ($overrides[$variation_id] ?? array()) + ($family_overrides[$product->get_id()] ?? array());
+                }
             } else {
                 $expanded[] = $product_id;
             }

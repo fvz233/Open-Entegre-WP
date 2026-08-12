@@ -125,6 +125,7 @@ $n11 = (new MultiSync\Marketplaces\N11Marketplace())->build_product_item_from_pr
     'category_id' => '100', 'vat_rate' => '20',
 ));
 check(!is_wp_error($n11) && $n11['stockCode'] === '8690000000001' && $n11['attributes'][0]['valueId'] === 99 && $n11['salePrice'] === 111.0 && $n11['shipmentTemplate'] === 'Global Standart', 'n11 product payload failed.');
+check($n11['barcode'] === null, 'n11 barcode incorrectly defaulted to the stock code.');
 check($n11['images'][0]['url'] === 'http://example.test/7.jpg', 'n11 HTTP image mapping failed.');
 $n11_brand_mapping = (new MultiSync\Marketplaces\N11Marketplace())->build_product_item_from_product($product, array(
     'shipment_template' => 'Global Standart',
@@ -149,9 +150,17 @@ check(array_column($n11_variation['images'], 'url') === array('http://example.te
 $expand = new ReflectionMethod(MultiSync\Sync\ProductPublisher::class, 'expand_variation_product_ids');
 $expand->setAccessible(true);
 check($expand->invoke(new MultiSync\Sync\ProductPublisher(), array(41)) === array(41, 42), 'n11 selected variation did not expand to its whole family.');
+$family_overrides = array(41 => array('variation_attribute' => 'pa_renk', 'variation_target_attribute_id' => '2', 'barcode' => 'child-only'));
+$expanded_ids = $expand->invokeArgs(new MultiSync\Sync\ProductPublisher(), array(array(41), &$family_overrides));
+check($expanded_ids === array(41, 42) && $family_overrides[42] === array('variation_attribute' => 'pa_renk', 'variation_target_attribute_id' => '2'), 'n11 variation mapping was not propagated to sibling SKUs.');
 $n11_fixture = new N11Fixture();
 $n11_fixture->push_products((object) array(), array($n11_variation, array_merge($n11_variation, array('stockCode' => 'BLACK-SKU'))));
 check(count($n11_fixture->body['payload']['skus']) === 2 && count(array_unique(array_column($n11_fixture->body['payload']['skus'], 'productMainId'))) === 1, 'n11 variants were not sent as sibling SKUs under one productMainId.');
+$n11_fixture->push_product_updates((object) array(), array($n11_fixture->build_product_update_item($n11_variation)));
+check($n11_fixture->body['payload']['skus'][0]['productMainId'] === 'PARENT-SKU' && $n11_fixture->body['payload']['skus'][0]['deleteProductMainId'] === false, 'n11 existing variation regroup update failed.');
+check(MultiSync\Sync\ProductPublisher::n11_batch_verdict(array('status' => 'IN_QUEUE')) === 'pending', 'n11 queued task was treated as complete.');
+check(MultiSync\Sync\ProductPublisher::n11_batch_verdict(array('status' => 'PROCESSED', 'skus' => array('content' => array(array('status' => 'SUCCESS'))))) === 'completed', 'n11 successful task was not completed.');
+check(MultiSync\Sync\ProductPublisher::n11_batch_verdict(array('status' => 'PROCESSED', 'skus' => array('content' => array(array('status' => 'SUCCESS'), array('status' => 'FAIL'))))) === 'failed', 'n11 failed SKU was treated as complete.');
 
 $pazarama = (new MultiSync\Marketplaces\PazaramaMarketplace())->build_product_item_from_product($product, array(
     'commission_rate' => 10,

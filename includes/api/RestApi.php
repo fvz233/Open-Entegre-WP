@@ -549,7 +549,9 @@ class RestApi
         if (is_wp_error($data)) {
             return new \WP_Error($data->get_error_code(), $data->get_error_message(), array('status' => 400));
         }
-        $verdict = ProductPublisher::ciceksepeti_batch_verdict($data);
+        $verdict = $context['marketplace_key'] === 'n11'
+            ? ProductPublisher::n11_batch_verdict($data)
+            : ProductPublisher::ciceksepeti_batch_verdict($data);
 
         $batch_items = array();
         if (is_array($data)) {
@@ -577,6 +579,10 @@ class RestApi
         $candidates = array('items', 'content', 'data', 'result', 'results', 'products', 'skus', 'batchItems', 'failedItemList', 'completedItemList');
         foreach ($candidates as $key) {
             if (isset($data[$key]) && is_array($data[$key])) {
+                if (!isset($data[$key][0])) {
+                    $nested = $this->extract_batch_items($data[$key]);
+                    if (!empty($nested)) return $nested;
+                }
                 foreach ($data[$key] as $item) {
                     if (is_array($item)) {
                         $items[] = $this->sanitize_raw_debug_value($item);
