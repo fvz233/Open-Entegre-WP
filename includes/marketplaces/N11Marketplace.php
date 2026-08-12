@@ -375,7 +375,7 @@ class N11Marketplace extends BaseMarketplace
         $barcode = $value('barcode', $sku);
         $model = $value('product_main_id', $parent ? $parent->get_sku() : $sku);
         $category_id = $value('category_id', $category_mapping['category_id'] ?? '');
-        $shipment = $value('shipment_template');
+        $shipment = $value('shipment_template', $category_mapping['shipment_template'] ?? '');
         $vat = $this->get_product_vat_rate($product, $value('vat_rate'));
         $missing = array();
         foreach (array('sku' => array('SKU / Stok Kodu', $sku), 'product_main_id' => array('Model Kodu', $model), 'category_id' => array('n11 Kategori ID', $category_id), 'shipment_template' => array('n11 Kargo Sablonu', $shipment)) as $key => $field) {

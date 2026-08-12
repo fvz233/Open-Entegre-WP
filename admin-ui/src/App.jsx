@@ -214,7 +214,7 @@ function App() {
                 {!isSyncCenterActive && activeTab === 'authorization' && !activeSupplier && <p>Pazar yeri bulunamadı.</p>}
                 {!isSyncCenterActive && activeTab === 'syncsettings' && activeSupplier && <SyncSettings supplier={activeSupplier} onSupplierUpdate={fetchSuppliers} />}
                 {!isSyncCenterActive && activeTab === 'syncsettings' && !activeSupplier && <p>Pazar yeri bulunamadı.</p>}
-                {!isSyncCenterActive && activeTab === 'mappings' && activeSupplier && <MarketplaceCategoryMapping supplier={activeSupplier} />}
+                {!isSyncCenterActive && activeTab === 'mappings' && activeSupplier && <MarketplaceCategoryMapping supplier={activeSupplier} onSupplierUpdate={fetchSuppliers} />}
                 {!isSyncCenterActive && activeTab === 'questions' && activeSupplier && <QuestionsPage key={activeSupplier.id} supplier={activeSupplier} />}
             </div>
         </div>

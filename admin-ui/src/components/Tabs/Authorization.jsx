@@ -19,6 +19,7 @@ function Authorization({ supplier, onSupplierUpdate }) {
         ptt_rest_api_key: '',
         ptt_access_token: '',
         hepsiburada_environment: 'production',
+        hepsiburada_developer_username: '',
         hepsiburada_test_api_key: '',
         hepsiburada_test_api_secret: '',
         hepsiburada_test_seller_id: ''
@@ -36,6 +37,7 @@ function Authorization({ supplier, onSupplierUpdate }) {
             ptt_rest_api_key: supplier.ptt_rest_api_key || '',
             ptt_access_token: supplier.ptt_access_token || '',
             hepsiburada_environment: supplier.hepsiburada_environment === 'test' ? 'test' : 'production',
+            hepsiburada_developer_username: supplier.hepsiburada_developer_username || '',
             hepsiburada_test_api_key: supplier.hepsiburada_test_api_key || '',
             hepsiburada_test_api_secret: supplier.hepsiburada_test_api_secret || '',
             hepsiburada_test_seller_id: supplier.hepsiburada_test_seller_id || '',
@@ -55,6 +57,7 @@ function Authorization({ supplier, onSupplierUpdate }) {
                 ptt_access_token: isPttAvm ? formData.ptt_access_token : '',
                 ...(isHepsiburada ? {
                     hepsiburada_environment: formData.hepsiburada_environment,
+                    hepsiburada_developer_username: formData.hepsiburada_developer_username,
                     hepsiburada_test_api_key: formData.hepsiburada_test_api_key,
                     hepsiburada_test_api_secret: formData.hepsiburada_test_api_secret,
                     hepsiburada_test_seller_id: formData.hepsiburada_test_seller_id,
@@ -104,7 +107,7 @@ function Authorization({ supplier, onSupplierUpdate }) {
                                     : isPttAvm
                                         ? 'PTTAVM SOAP entegrasyonu icin kullanici adi (API Key) ve sifre (API Secret) bilgilerini girin.'
                                     : isHepsiburada
-                                        ? 'Hepsiburada katalog entegrasyonu icin Basic Auth kullanici adi, sifre ve Merchant ID bilgilerini girin.'
+                                        ? 'Hepsiburada entegrasyonu icin Basic Auth kullanici adi, sifre, Merchant ID ve Developer Username bilgilerini girin.'
                         : 'Trendyol entegrasyonu icin API Key, API Secret ve Satici ID bilgilerini girin.'}
                 </p>
             </div>
@@ -176,6 +179,16 @@ function Authorization({ supplier, onSupplierUpdate }) {
                             value={isHepsiburada && formData.hepsiburada_environment === 'test' ? formData.hepsiburada_test_seller_id : formData.seller_id}
                             onChange={e => setFormData({ ...formData, [isHepsiburada && formData.hepsiburada_environment === 'test' ? 'hepsiburada_test_seller_id' : 'seller_id']: e.target.value })}
                             placeholder={isCiceksepeti ? 'Ornek: 123456 (opsiyonel)' : isAmazon ? 'Ornek: A1BC2DEFGHIJKL' : isHepsiburada ? 'Hepsiburada Magaza ID' : 'Ornek: 123456'}
+                        />
+                    </div>
+                )}
+                {isHepsiburada && (
+                    <div className="form-group">
+                        <label>Developer Username (User-Agent)</label>
+                        <input
+                            value={formData.hepsiburada_developer_username}
+                            onChange={e => setFormData({ ...formData, hepsiburada_developer_username: e.target.value })}
+                            placeholder="Hepsiburada Developer Username"
                         />
                     </div>
                 )}

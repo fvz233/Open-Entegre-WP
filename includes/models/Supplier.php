@@ -112,7 +112,9 @@ class Supplier
             'amazon_refresh_token' => isset($defaults['amazon_refresh_token']) ? $defaults['amazon_refresh_token'] : '',
             'ptt_rest_api_key' => '',
             'ptt_access_token' => '',
+            'n11_shipment_template' => '',
             'hepsiburada_environment' => 'production',
+            'hepsiburada_developer_username' => '',
             'hepsiburada_test_api_key' => '',
             'hepsiburada_test_api_secret' => '',
             'hepsiburada_test_seller_id' => '',
@@ -179,12 +181,14 @@ class Supplier
                 'amazon_refresh_token' => isset($data['amazon_refresh_token']) ? $this->sanitize_credential_value($data['amazon_refresh_token']) : '',
                 'ptt_rest_api_key' => isset($data['ptt_rest_api_key']) ? $this->sanitize_credential_value($data['ptt_rest_api_key']) : '',
                 'ptt_access_token' => isset($data['ptt_access_token']) ? $this->sanitize_credential_value($data['ptt_access_token']) : '',
+                'n11_shipment_template' => isset($data['n11_shipment_template']) ? sanitize_text_field($data['n11_shipment_template']) : '',
                 'hepsiburada_environment' => isset($data['hepsiburada_environment']) && $data['hepsiburada_environment'] === 'test' ? 'test' : 'production',
+                'hepsiburada_developer_username' => isset($data['hepsiburada_developer_username']) ? sanitize_text_field($data['hepsiburada_developer_username']) : '',
                 'hepsiburada_test_api_key' => isset($data['hepsiburada_test_api_key']) ? $this->sanitize_credential_value($data['hepsiburada_test_api_key']) : '',
                 'hepsiburada_test_api_secret' => isset($data['hepsiburada_test_api_secret']) ? $this->sanitize_credential_value($data['hepsiburada_test_api_secret']) : '',
                 'hepsiburada_test_seller_id' => isset($data['hepsiburada_test_seller_id']) ? $this->sanitize_credential_value($data['hepsiburada_test_seller_id']) : ''
             ),
-            array('%s', '%s', '%d', '%f', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')
+            array('%s', '%s', '%d', '%f', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')
         );
         return $wpdb->insert_id;
     }
@@ -247,8 +251,18 @@ class Supplier
             $formats[] = '%s';
         }
 
+        if (isset($data['n11_shipment_template'])) {
+            $fields['n11_shipment_template'] = sanitize_text_field($data['n11_shipment_template']);
+            $formats[] = '%s';
+        }
+
         if (isset($data['hepsiburada_environment'])) {
             $fields['hepsiburada_environment'] = $data['hepsiburada_environment'] === 'test' ? 'test' : 'production';
+            $formats[] = '%s';
+        }
+
+        if (isset($data['hepsiburada_developer_username'])) {
+            $fields['hepsiburada_developer_username'] = sanitize_text_field($data['hepsiburada_developer_username']);
             $formats[] = '%s';
         }
 

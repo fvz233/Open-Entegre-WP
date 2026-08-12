@@ -54,7 +54,22 @@ class HepsiburadaMarketplace extends BaseMarketplace
 
     protected function build_user_agent($supplier)
     {
-        return 'MultiSync/' . (defined('MULTI_SYNC_VERSION') ? MULTI_SYNC_VERSION : '1.0');
+        return trim((string) $this->supplier_value($supplier, 'hepsiburada_developer_username'));
+    }
+
+    public function validate_credentials($supplier)
+    {
+        $check = parent::validate_credentials($supplier);
+        if (is_wp_error($check)) return $check;
+
+        if ($this->build_user_agent($supplier) === '') {
+            return new \WP_Error(
+                'multi_sync_missing_hepsiburada_developer_username',
+                'Eksik yetki bilgisi: Developer Username (User-Agent).'
+            );
+        }
+
+        return true;
     }
 
     protected function request_json($method, $url, $supplier, $body = null)
@@ -77,17 +92,27 @@ class HepsiburadaMarketplace extends BaseMarketplace
     {
         $check = $this->validate_credentials($supplier);
         if (is_wp_error($check)) return $check;
-        $url = $this->api_base($supplier) . '/categories/get-all-categories?' . http_build_query(array(
-            'leaf' => 'true', 'status' => 'active', 'available' => 'true', 'page' => 0, 'size' => 2000, 'version' => 1,
-        ));
-        $response = $this->request_json('GET', $url, $supplier);
-        if (is_wp_error($response)) return $response;
+        $rows = array();
+        $page = 0;
+        do {
+            $url = $this->api_base($supplier) . '/categories/get-all-categories?' . http_build_query(array(
+                'leaf' => 'true', 'status' => 'ACTIVE', 'available' => 'true', 'page' => $page, 'size' => 2000, 'version' => 1,
+            ));
+            $response = $this->request_json('GET', $url, $supplier);
+            if (is_wp_error($response)) return $response;
+            $payload = $response['data'];
+            $rows = array_merge($rows, $this->extract_list($payload, array('data', 'content', 'items')));
+            $total_pages = max(1, (int) ($payload['totalPages'] ?? 1));
+            $page++;
+        } while ($page < $total_pages);
+
         $needle = mb_strtolower(trim((string) $search), 'UTF-8');
         $result = array();
-        foreach ($this->extract_list($response['data'], array('data', 'content', 'items')) as $row) {
+        foreach ($rows as $row) {
             $row = is_array($row) ? $row : (array) $row;
             if (empty($row['categoryId']) || (isset($row['leaf']) && !$row['leaf']) || (isset($row['available']) && !$row['available'])) continue;
-            $path = trim((string) ($row['paths'] ?? $row['path'] ?? $row['name'] ?? ''));
+            $path_value = $row['paths'] ?? $row['path'] ?? $row['name'] ?? '';
+            $path = is_array($path_value) ? implode(' > ', array_map('strval', $path_value)) : trim((string) $path_value);
             if ($needle === '' || mb_strpos(mb_strtolower($path, 'UTF-8'), $needle) !== false) {
                 $result[] = array('id' => (string) $row['categoryId'], 'name' => (string) ($row['name'] ?? ''), 'path' => $path);
             }
@@ -102,20 +127,31 @@ class HepsiburadaMarketplace extends BaseMarketplace
         $url = $this->api_base($supplier) . '/categories/' . rawurlencode((string) $category_id) . '/attributes?version=1';
         $response = $this->request_json('GET', $url, $supplier);
         if (is_wp_error($response)) return $response;
+        $payload = $response['data'];
+        $data = $payload['data'] ?? $payload;
+        $rows = isset($data['attributes'])
+            ? array_merge((array) $data['attributes'], (array) ($data['variantAttributes'] ?? array()))
+            : $this->extract_list($payload, array('data', 'attributes', 'items'));
         $result = array();
-        foreach ($this->extract_list($response['data'], array('data', 'attributes', 'items')) as $row) {
+        foreach ($rows as $row) {
             $row = is_array($row) ? $row : (array) $row;
             $id = (string) ($row['id'] ?? $row['attributeId'] ?? '');
             if ($id === '') continue;
             $values = array();
             if (strtolower((string) ($row['type'] ?? '')) === 'enum') {
-                $value_url = $this->api_base($supplier) . '/categories/' . rawurlencode((string) $category_id) . '/attributes/' . rawurlencode($id) . '/values?' . http_build_query(array('page' => 0, 'size' => 1000, 'version' => 1));
-                $value_response = $this->request_json('GET', $value_url, $supplier);
-                if (is_wp_error($value_response)) return $value_response;
-                foreach ($this->extract_list($value_response['data'], array('data', 'values', 'items')) as $option) {
-                    $option = is_array($option) ? $option : (array) $option;
-                    if (isset($option['id']) && isset($option['value'])) $values[] = array('id' => (string) $option['id'], 'name' => (string) $option['value']);
-                }
+                $page = 0;
+                do {
+                    $value_url = $this->api_base($supplier) . '/categories/' . rawurlencode((string) $category_id) . '/attribute/' . rawurlencode($id) . '/values?' . http_build_query(array('version' => 5, 'page' => $page, 'size' => 1000));
+                    $value_response = $this->request_json('GET', $value_url, $supplier);
+                    if (is_wp_error($value_response)) return $value_response;
+                    $value_payload = $value_response['data'];
+                    foreach ($this->extract_list($value_payload, array('data', 'values', 'items')) as $option) {
+                        $option = is_array($option) ? $option : (array) $option;
+                        if (isset($option['value'])) $values[] = array('id' => (string) ($option['id'] ?? $option['value']), 'name' => (string) $option['value']);
+                    }
+                    $total_pages = max(1, (int) ($value_payload['totalPages'] ?? 1));
+                    $page++;
+                } while ($page < $total_pages);
             }
             $result[] = array(
                 'id' => $id,
@@ -133,16 +169,10 @@ class HepsiburadaMarketplace extends BaseMarketplace
     public function fetch_product_brands($supplier, $search = '', $category_id = '')
     {
         if ((string) $category_id === '') return new \WP_Error('multi_sync_hepsiburada_brand_category_required', 'Hepsiburada marka aramasi icin once kategori secin.');
-        $attributes = $this->fetch_category_attributes($supplier, $category_id);
-        if (is_wp_error($attributes)) return $attributes;
-        $needle = mb_strtolower(trim((string) $search), 'UTF-8');
-        foreach ($attributes as $attribute) {
-            if ($this->normalized_name($attribute['name'] ?? '') !== 'marka') continue;
-            return array_values(array_filter((array) ($attribute['values'] ?? array()), function ($brand) use ($needle) {
-                return $needle === '' || mb_strpos(mb_strtolower((string) ($brand['name'] ?? ''), 'UTF-8'), $needle) !== false;
-            }));
-        }
-        return array();
+        $check = $this->validate_credentials($supplier);
+        if (is_wp_error($check)) return $check;
+        $brand = trim((string) $search);
+        return $brand === '' ? array() : array(array('id' => $brand, 'name' => $brand));
     }
 
     public function build_product_item_from_product($product, $category_mapping = array(), $overrides = array())

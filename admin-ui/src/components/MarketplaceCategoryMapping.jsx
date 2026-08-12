@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api';
 
-function MarketplaceCategoryMapping({ supplier }) {
+function MarketplaceCategoryMapping({ supplier, onSupplierUpdate }) {
+    const sectionStyle = { background: '#f7f9fc', border: '1px solid #e4e8ef', borderRadius: '10px', padding: '16px' };
     const marketplace = supplier.marketplace_label || supplier.name || supplier.marketplace_key;
     const [wooCategories, setWooCategories] = useState([]);
     const [mappings, setMappings] = useState({});
@@ -22,6 +23,7 @@ function MarketplaceCategoryMapping({ supplier }) {
     const [manualBrandId, setManualBrandId] = useState('');
     const [manualBrandName, setManualBrandName] = useState('');
     const [commissionRate, setCommissionRate] = useState('');
+    const [n11ShipmentTemplate, setN11ShipmentTemplate] = useState(supplier.n11_shipment_template || '');
     const [feedback, setFeedback] = useState(null);
 
     const load = async () => {
@@ -34,8 +36,23 @@ function MarketplaceCategoryMapping({ supplier }) {
 
     useEffect(() => {
         setFeedback(null);
+        setN11ShipmentTemplate(supplier.n11_shipment_template || '');
         load().catch(e => setFeedback({ type: 'error', message: e.response?.data?.message || e.message || 'Eşlemeler yüklenemedi.' }));
     }, [supplier.id]);
+
+    const saveN11ShipmentTemplate = async () => {
+        setLoading(true);
+        setFeedback(null);
+        try {
+            await api.updateSupplier(supplier.id, { n11_shipment_template: n11ShipmentTemplate.trim() });
+            if (onSupplierUpdate) await onSupplierUpdate();
+            setN11ShipmentTemplate(n11ShipmentTemplate.trim());
+            setFeedback({ type: 'success', message: 'n11 kargo şablonu kaydedildi.' });
+        } catch (e) {
+            setFeedback({ type: 'error', message: e.response?.data?.message || 'n11 kargo şablonu kaydedilemedi.' });
+        }
+        setLoading(false);
+    };
 
     const selectWooCategory = (id) => {
         setWooCategoryId(id);
@@ -190,7 +207,7 @@ function MarketplaceCategoryMapping({ supplier }) {
                     {feedback.message}
                 </div>
             )}
-            <div>
+            <div style={sectionStyle}>
                 <h4>{marketplace} Kategori Eşlemesi</h4>
                 <div style={{ display: 'grid', gap: '8px' }}>
                 <select value={wooCategoryId} onChange={e => selectWooCategory(e.target.value)}>
@@ -241,7 +258,7 @@ function MarketplaceCategoryMapping({ supplier }) {
                     </div>
                 ))}
             </div>
-            <div>
+            <div style={sectionStyle}>
                 <h4>{marketplace} Marka Eşlemesi</h4>
                 {wooBrands.length === 0 ? (
                     <small>WooCommerce marka taksonomisi bulunamadı. Önce ürün markalarını oluşturun.</small>
@@ -285,6 +302,18 @@ function MarketplaceCategoryMapping({ supplier }) {
                     </div>
                 ))}
             </div>
+            {supplier.marketplace_key === 'n11' && (
+                <div style={sectionStyle}>
+                    <h4 style={{ marginTop: 0 }}>n11 Genel Ayarları</h4>
+                    <label>
+                        Global Kargo Şablonu
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                            <input value={n11ShipmentTemplate} onChange={e => setN11ShipmentTemplate(e.target.value)} placeholder="N11 panelindeki şablon adı" />
+                            <button type="button" className="btn" onClick={saveN11ShipmentTemplate} disabled={loading || !n11ShipmentTemplate.trim()}>Kaydet</button>
+                        </div>
+                    </label>
+                </div>
+            )}
         </div>
     );
 }

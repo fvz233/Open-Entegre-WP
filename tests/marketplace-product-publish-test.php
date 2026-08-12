@@ -62,6 +62,7 @@ class HepsiburadaFixture extends MultiSync\Marketplaces\HepsiburadaMarketplace
     public function multipart($items) { return $this->build_multipart_body($items, 'Boundary'); }
     public function api_base_for($supplier) { return $this->api_base($supplier); }
     public function listing_api_base_for($supplier) { return $this->listing_api_base($supplier); }
+    public function user_agent_for($supplier) { return $this->build_user_agent($supplier); }
 }
 
 class HepsiburadaParentProduct extends MarketplacePublishProduct
@@ -82,12 +83,13 @@ $product = new MarketplacePublishProduct();
 
 $n11 = (new MultiSync\Marketplaces\N11Marketplace())->build_product_item_from_product($product, array(
     'commission_rate' => 10,
+    'shipment_template' => 'Global Standart',
     'attributes' => array(array('attributeId' => '1', 'attributeValueIds' => array('99'))),
     'attribute_definitions' => array(array('id' => '1', 'name' => 'Marka', 'required' => true, 'values' => array(array('id' => '99', 'name' => 'Demsu')))),
 ), array(
-    'category_id' => '100', 'shipment_template' => 'Standart', 'vat_rate' => '20',
+    'category_id' => '100', 'vat_rate' => '20',
 ));
-check(!is_wp_error($n11) && $n11['stockCode'] === '8690000000001' && $n11['attributes'][0]['valueId'] === 99 && $n11['salePrice'] === 111.0, 'n11 product payload failed.');
+check(!is_wp_error($n11) && $n11['stockCode'] === '8690000000001' && $n11['attributes'][0]['valueId'] === 99 && $n11['salePrice'] === 111.0 && $n11['shipmentTemplate'] === 'Global Standart', 'n11 product payload failed.');
 check($n11['images'][0]['url'] === 'http://example.test/7.jpg', 'n11 HTTP image mapping failed.');
 $n11_commission = (new MultiSync\Marketplaces\N11Marketplace())->build_price_inventory_item_from_product($product, false, true, 10);
 check($n11_commission['listPrice'] === 133.0 && $n11_commission['salePrice'] === 111.0, 'Category commission was not applied to marketplace prices.');
@@ -143,14 +145,14 @@ check($hb_variation['attributes']['color'] === 'Osmanlı', 'Hepsiburada variatio
 
 $multipart = $hepsiburada->multipart(array(array('categoryId' => 123, 'merchant' => 'merchant-1', 'attributes' => $hb_item['attributes'])));
 check(strpos($multipart, 'filename="products.json"') !== false && strpos($multipart, '"merchant":"merchant-1"') !== false, 'Hepsiburada multipart JSON failed.');
-$hb_result = $hepsiburada->push_products((object) array('api_key' => 'user', 'api_secret' => 'pass', 'seller_id' => 'merchant-1'), array($hb_item));
+$hb_result = $hepsiburada->push_products((object) array('api_key' => 'user', 'api_secret' => 'pass', 'seller_id' => 'merchant-1', 'hepsiburada_developer_username' => 'developer-user'), array($hb_item));
 check($hb_result['trackingId'] === 'tracking-1' && strpos($GLOBALS['hepsiburada_request']['args']['body'], '"merchant":"merchant-1"') !== false, 'Hepsiburada tracking ID or merchant upload failed.');
-$hb_test_supplier = (object) array('hepsiburada_environment' => 'test', 'hepsiburada_test_api_key' => 'test-user', 'hepsiburada_test_api_secret' => 'test-pass', 'hepsiburada_test_seller_id' => 'test-merchant');
+$hb_test_supplier = (object) array('hepsiburada_environment' => 'test', 'hepsiburada_developer_username' => 'developer-user', 'hepsiburada_test_api_key' => 'test-user', 'hepsiburada_test_api_secret' => 'test-pass', 'hepsiburada_test_seller_id' => 'test-merchant');
 check($hepsiburada->api_base_for($hb_test_supplier) === 'https://mpop-sit.hepsiburada.com/product/api', 'Hepsiburada SIT API base failed.');
 check($hepsiburada->mapping_option_suffix($hb_test_supplier) === '_test' && $hepsiburada->mapping_option_suffix((object) array()) === '', 'Hepsiburada SIT mapping isolation failed.');
 check($hepsiburada->listing_api_base_for($hb_test_supplier) === 'https://listing-external-sit.hepsiburada.com', 'Hepsiburada SIT listing base failed.');
 $hepsiburada->push_products($hb_test_supplier, array($hb_item));
-check(strpos($GLOBALS['hepsiburada_request']['url'], 'https://mpop-sit.hepsiburada.com/product/api/products/import') === 0 && $GLOBALS['hepsiburada_request']['args']['headers']['Authorization'] === 'Basic ' . base64_encode('test-user:test-pass') && strpos($GLOBALS['hepsiburada_request']['args']['body'], '"merchant":"test-merchant"') !== false, 'Hepsiburada SIT credentials or endpoint failed.');
+check(strpos($GLOBALS['hepsiburada_request']['url'], 'https://mpop-sit.hepsiburada.com/product/api/products/import') === 0 && $GLOBALS['hepsiburada_request']['args']['headers']['Authorization'] === 'Basic ' . base64_encode('test-user:test-pass') && $GLOBALS['hepsiburada_request']['args']['headers']['User-Agent'] === 'developer-user' && strpos($GLOBALS['hepsiburada_request']['args']['body'], '"merchant":"test-merchant"') !== false, 'Hepsiburada SIT credentials, User-Agent or endpoint failed.');
 $hepsiburada->responses = array(
     array('data' => array('success' => true, 'totalPages' => 2, 'data' => array(array('merchantSku' => 'SKU1', 'importStatus' => 'PROCESSING')))),
     array('data' => array('success' => true, 'totalPages' => 2, 'data' => array(array('merchantSku' => 'SKU2', 'importStatus' => 'PROCESSING')))),
@@ -161,21 +163,23 @@ check(MultiSync\Sync\ProductPublisher::ciceksepeti_batch_verdict($hb_status) ===
 check(MultiSync\Sync\ProductPublisher::ciceksepeti_batch_verdict(array('success' => false)) === 'failed', 'Hepsiburada failed status was treated as complete.');
 
 $hepsiburada->responses = array(
-    array('data' => array('data' => array(array('id' => 'brand', 'name' => 'Marka', 'mandatory' => true, 'type' => 'enum')))),
-    array('data' => array('data' => array(array('id' => 'demsu', 'value' => 'Demsu')))),
+    array('data' => array('data' => array('attributes' => array(array('id' => 'material', 'name' => 'Materyal', 'mandatory' => true, 'type' => 'enum')), 'variantAttributes' => array(array('id' => 'color', 'name' => 'Renk', 'mandatory' => false, 'type' => 'string'))))),
+    array('data' => array('totalPages' => 1, 'data' => array(array('value' => 'Çelik')))),
 );
-$hb_attributes = $hepsiburada->fetch_category_attributes((object) array('api_key' => 'user', 'api_secret' => 'pass', 'seller_id' => 'merchant'), '123');
-check($hb_attributes[0]['required'] === true && $hb_attributes[0]['values'][0]['name'] === 'Demsu', 'Hepsiburada category attributes failed.');
-$hb_supplier = (object) array('api_key' => 'user', 'api_secret' => 'pass', 'seller_id' => 'merchant');
-$hepsiburada->responses = array(array('data' => array('data' => array(array('categoryId' => 123, 'name' => 'Semaver', 'paths' => 'Ev > Mutfak > Semaver', 'leaf' => true, 'available' => true)))));
+$hb_attributes = $hepsiburada->fetch_category_attributes((object) array('api_key' => 'user', 'api_secret' => 'pass', 'seller_id' => 'merchant', 'hepsiburada_developer_username' => 'developer-user'), '123');
+check(count($hb_attributes) === 2 && $hb_attributes[0]['required'] === true && $hb_attributes[0]['values'][0]['id'] === 'Çelik', 'Hepsiburada category attributes failed.');
+check(strpos($GLOBALS['hepsiburada_json_request']['url'], '/attribute/material/values?version=5') !== false, 'Hepsiburada attribute values endpoint failed.');
+$hb_supplier = (object) array('api_key' => 'user', 'api_secret' => 'pass', 'seller_id' => 'merchant', 'hepsiburada_developer_username' => 'developer-user');
+check($hepsiburada->user_agent_for($hb_supplier) === 'developer-user', 'Hepsiburada variable User-Agent failed.');
+$hepsiburada->responses = array(
+    array('data' => array('totalPages' => 2, 'data' => array(array('categoryId' => 122, 'name' => 'Tencere', 'paths' => array('Ev', 'Mutfak', 'Tencere'), 'leaf' => true, 'available' => true)))),
+    array('data' => array('totalPages' => 2, 'data' => array(array('categoryId' => 123, 'name' => 'Semaver', 'paths' => array('Ev', 'Mutfak', 'Semaver'), 'leaf' => true, 'available' => true)))),
+);
 $hb_categories = $hepsiburada->fetch_product_categories($hb_supplier, 'semaver');
 check(count($hb_categories) === 1 && $hb_categories[0]['path'] === 'Ev > Mutfak > Semaver', 'Hepsiburada category search failed.');
-$hepsiburada->responses = array(
-    array('data' => array('data' => array(array('id' => 'brand', 'name' => 'Marka', 'mandatory' => true, 'type' => 'enum')))),
-    array('data' => array('data' => array(array('id' => 'demsu', 'value' => 'Demsu'), array('id' => 'other', 'value' => 'Diger')))),
-);
+check(strpos($GLOBALS['hepsiburada_json_request']['url'], 'status=ACTIVE') !== false && strpos($GLOBALS['hepsiburada_json_request']['url'], 'page=1') !== false, 'Hepsiburada category status or pagination failed.');
 $hb_brands = $hepsiburada->fetch_product_brands($hb_supplier, 'dem', '123');
-check(count($hb_brands) === 1 && $hb_brands[0]['name'] === 'Demsu', 'Hepsiburada brand search failed.');
+check(count($hb_brands) === 1 && $hb_brands[0]['name'] === 'dem' && $hb_brands[0]['id'] === 'dem', 'Hepsiburada free-text brand search failed.');
 
 $hepsiburada->responses = array(
     array('data' => array('data' => array())),

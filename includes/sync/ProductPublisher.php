@@ -606,6 +606,9 @@ class ProductPublisher
     private function product_mapping($product, $context)
     {
         $mapping = $this->category_mapping($product, $context['mappings']);
+        if ($context['marketplace_key'] === 'n11') {
+            $mapping['shipment_template'] = trim((string) ($context['supplier']->n11_shipment_template ?? ''));
+        }
         $category_id = (string) ($mapping['category_id'] ?? '');
         if ($category_id !== '' && !array_key_exists('commission_rate', $mapping) && isset($context['commission_rates'][$category_id])) {
             $mapping['commission_rate'] = (float) $context['commission_rates'][$category_id];
