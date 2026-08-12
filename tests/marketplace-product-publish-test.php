@@ -65,6 +65,12 @@ class HepsiburadaFixture extends MultiSync\Marketplaces\HepsiburadaMarketplace
     public function user_agent_for($supplier) { return $this->build_user_agent($supplier); }
 }
 
+class CiceksepetiFixture extends MultiSync\Marketplaces\CiceksepetiMarketplace
+{
+    public $response = array();
+    protected function request_json($method, $url, $supplier, $body = null) { return $this->response; }
+}
+
 class HepsiburadaParentProduct extends MarketplacePublishProduct
 {
     public function get_sku() { return 'parent 1'; }
@@ -108,6 +114,13 @@ check($pazarama['images'][0]['imageurl'] === 'http://example.test/7.jpg', 'Pazar
 $cicek = (new MultiSync\Marketplaces\CiceksepetiMarketplace())->build_product_item_from_product($product, array('commission_rate' => 10), array('category_id' => '42', 'vat_rate' => '20'));
 check(!is_wp_error($cicek) && $cicek['mainProductCode'] === '8690000000001' && $cicek['categoryId'] === 42 && $cicek['salesPrice'] === 111.0, 'Ciceksepeti product payload failed.');
 check($cicek['images'][0] === 'http://example.test/7.jpg', 'Ciceksepeti HTTP image mapping failed.');
+$cicek_fixture = new CiceksepetiFixture();
+$cicek_fixture->response = array('data' => array('categoryAttributes' => array(
+    array('attributeId' => 1, 'attributeName' => 'Marka', 'required' => true, 'varianter' => false, 'attributeValues' => array(array('id' => 10, 'name' => 'Demsu'))),
+    array('attributeId' => 2, 'attributeName' => 'Renk', 'required' => false, 'varianter' => true, 'attributeValues' => array()),
+)));
+$cicek_attributes = $cicek_fixture->fetch_category_attributes((object) array(), '42');
+check(count($cicek_attributes) === 2 && $cicek_attributes[0]['required'] === true && $cicek_attributes[1]['varianter'] === true, 'Ciceksepeti category attribute flags failed.');
 
 $amazon = (new MultiSync\Marketplaces\AmazonMarketplace())->build_product_item_from_product($product, array('commission_rate' => 10), array('category_id' => 'PRODUCT', 'brand' => 'Demsu', 'barcode' => '8690000000001'));
 check(!is_wp_error($amazon) && $amazon['productType'] === 'PRODUCT' && isset($amazon['attributes']['purchasable_offer']), 'Amazon listing payload failed.');
@@ -167,7 +180,7 @@ $hepsiburada->responses = array(
     array('data' => array('totalPages' => 1, 'data' => array(array('value' => 'Çelik')))),
 );
 $hb_attributes = $hepsiburada->fetch_category_attributes((object) array('api_key' => 'user', 'api_secret' => 'pass', 'seller_id' => 'merchant', 'hepsiburada_developer_username' => 'developer-user'), '123');
-check(count($hb_attributes) === 2 && $hb_attributes[0]['required'] === true && $hb_attributes[0]['values'][0]['id'] === 'Çelik', 'Hepsiburada category attributes failed.');
+check(count($hb_attributes) === 2 && $hb_attributes[0]['required'] === true && $hb_attributes[0]['values'][0]['id'] === 'Çelik' && $hb_attributes[1]['varianter'] === true, 'Hepsiburada category attributes failed.');
 check(strpos($GLOBALS['hepsiburada_json_request']['url'], '/attribute/material/values?version=5') !== false, 'Hepsiburada attribute values endpoint failed.');
 $hb_supplier = (object) array('api_key' => 'user', 'api_secret' => 'pass', 'seller_id' => 'merchant', 'hepsiburada_developer_username' => 'developer-user');
 check($hepsiburada->user_agent_for($hb_supplier) === 'developer-user', 'Hepsiburada variable User-Agent failed.');

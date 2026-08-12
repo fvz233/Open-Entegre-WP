@@ -79,6 +79,7 @@ class ProductPublisher
                 'variation_attribute_options' => array_keys($variation_attributes),
                 'variation_attribute_labels' => $variation_attribute_labels,
                 'variation_target_options' => $variation_target_options,
+                'attribute_fields' => $this->attribute_fields($mapping),
             );
         }
 
@@ -135,7 +136,7 @@ class ProductPublisher
                 : array();
             $mapping = $this->product_mapping($product, $context);
 
-            if ($supports_update && $this->is_published($product, $context, $catalog_products)) {
+            if ($supports_update && !$product_overrides && $this->is_published($product, $context, $catalog_products)) {
                 $item = $adapter->build_price_inventory_item_from_product($product, true, true, isset($mapping['commission_rate']) ? $mapping['commission_rate'] : null);
                 if (is_wp_error($item)) {
                     $skipped[] = array('id' => $product->get_id(), 'message' => $item->get_error_message());
@@ -620,6 +621,34 @@ class ProductPublisher
             if ($brand !== '') $mapping['brand_name'] = $brand;
         }
         return $mapping;
+    }
+
+    private function attribute_fields($mapping)
+    {
+        $matched = array();
+        foreach ((array) ($mapping['attributes'] ?? array()) as $attribute) {
+            $id = (string) ($attribute['attributeId'] ?? '');
+            if ($id !== '') $matched[$id] = (string) (($attribute['attributeValueIds'][0] ?? null) ?: ($attribute['attributeValue'] ?? ''));
+        }
+        $fields = array();
+        foreach ((array) ($mapping['attribute_definitions'] ?? array()) as $definition) {
+            $id = (string) ($definition['id'] ?? '');
+            if ($id === '') continue;
+            $value = $matched[$id] ?? '';
+            $label = $value;
+            foreach ((array) ($definition['values'] ?? array()) as $option) {
+                if ((string) ($option['id'] ?? '') === $value) $label = (string) ($option['name'] ?? $value);
+            }
+            $fields[] = array(
+                'key' => 'attribute_' . $id,
+                'label' => (string) ($definition['name'] ?? $id),
+                'type' => !empty($definition['values']) ? 'select' : 'text',
+                'options' => array_values((array) ($definition['values'] ?? array())),
+                'matched_value' => $value,
+                'matched_label' => $label,
+            );
+        }
+        return $fields;
     }
 
     private function woo_product_brand($product)

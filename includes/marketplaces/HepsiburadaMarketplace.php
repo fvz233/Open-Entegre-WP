@@ -129,9 +129,16 @@ class HepsiburadaMarketplace extends BaseMarketplace
         if (is_wp_error($response)) return $response;
         $payload = $response['data'];
         $data = $payload['data'] ?? $payload;
-        $rows = isset($data['attributes'])
-            ? array_merge((array) $data['attributes'], (array) ($data['variantAttributes'] ?? array()))
-            : $this->extract_list($payload, array('data', 'attributes', 'items'));
+        if (isset($data['attributes'])) {
+            $rows = (array) $data['attributes'];
+            foreach ((array) ($data['variantAttributes'] ?? array()) as $variant_attribute) {
+                $variant_attribute = is_array($variant_attribute) ? $variant_attribute : (array) $variant_attribute;
+                $variant_attribute['variant'] = true;
+                $rows[] = $variant_attribute;
+            }
+        } else {
+            $rows = $this->extract_list($payload, array('data', 'attributes', 'items'));
+        }
         $result = array();
         foreach ($rows as $row) {
             $row = is_array($row) ? $row : (array) $row;

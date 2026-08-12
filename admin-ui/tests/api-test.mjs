@@ -59,10 +59,13 @@ await assert.rejects(
 
 const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
 const settingsSource = readFileSync(new URL('../src/components/Tabs/SyncSettings.jsx', import.meta.url), 'utf8');
-const categoryMappingSource = readFileSync(new URL('../src/components/TrendyolCategoryMapping.jsx', import.meta.url), 'utf8');
+const categoryMappingSource = readFileSync(new URL('../src/components/MarketplaceCategoryMapping.jsx', import.meta.url), 'utf8');
 assert.match(appSource, /Eşleştirmeler/);
 assert.match(appSource, /questionMarketplaces = new Set\(\['trendyol'\]\)/);
 assert.doesNotMatch(settingsSource, /TrendyolCategoryMapping/);
 assert.match(categoryMappingSource, /onClick=\{\(\) => selectWooCategory\(categoryId\)\}[^>]*>Düzenle<\/button>/);
+assert.match(categoryMappingSource, /attribute\.required && 'zorunlu'/);
+assert.match(categoryMappingSource, /attribute\.slicer \|\| attribute\.varianter/);
+assert.match(categoryMappingSource, /'isteğe bağlı'/);
 
 console.log('api-test: ok');

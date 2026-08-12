@@ -15,6 +15,7 @@ function is_wp_error($value) { return $value instanceof WP_Error; }
 function wp_json_encode($value) { return json_encode($value); }
 function wp_get_attachment_url($id) { return $id ? 'http://example.test/' . $id . '.jpg' : ''; }
 function sanitize_text_field($value) { return trim((string) $value); }
+function wp_strip_all_tags($value) { return strip_tags((string) $value); }
 function esc_url_raw($value) { return (string) $value; }
 function taxonomy_exists($taxonomy) { return false; }
 function wc_attribute_label($name, $product = null) { return $name === 'pa_renk' ? 'Renk' : $name; }
@@ -170,8 +171,18 @@ $manual_commission = $product_mapping_method->invoke(new MultiSync\Sync\ProductP
     'mappings' => array(3 => array('category_id' => 30, 'commission_rate' => 10)),
     'brand_mappings' => array(),
     'commission_rates' => array('30' => 15),
+    'marketplace_key' => 'trendyol',
 ));
 check($manual_commission['commission_rate'] === 10, 'Manual category commission must override the API rate.');
+$attribute_fields_method = new ReflectionMethod(MultiSync\Sync\ProductPublisher::class, 'attribute_fields');
+$attribute_fields_method->setAccessible(true);
+$attribute_fields = $attribute_fields_method->invoke(new MultiSync\Sync\ProductPublisher(), array(
+    'attributes' => array(array('attributeId' => 8, 'attributeValueIds' => array(9))),
+    'attribute_definitions' => array(array('id' => 8, 'name' => 'Materyal', 'values' => array(array('id' => 9, 'name' => 'Pamuk')))),
+));
+check($attribute_fields[0]['key'] === 'attribute_8' && $attribute_fields[0]['matched_label'] === 'Pamuk', 'Category attributes were not exposed for per-product overrides.');
+$publisher_source = file_get_contents(dirname(__DIR__) . '/includes/sync/ProductPublisher.php');
+check(strpos($publisher_source, '$supports_update && !$product_overrides') !== false, 'Attribute overrides would be ignored for an already-published product.');
 $brand_method = new ReflectionMethod(MultiSync\Sync\ProductPublisher::class, 'brand_mapping');
 $brand_method->setAccessible(true);
 $brand = $brand_method->invoke(new MultiSync\Sync\ProductPublisher(), new PublishProduct(), array('product_brand:5' => array('brand_id' => '12', 'brand_name' => 'Demsu')));

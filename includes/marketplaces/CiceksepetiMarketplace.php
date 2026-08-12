@@ -478,17 +478,19 @@ class CiceksepetiMarketplace extends BaseMarketplace
         $response = $this->request_json('GET', self::API_BASE . '/Categories/' . rawurlencode((string) $category_id) . '/attributes', $supplier);
         if (is_wp_error($response)) return $response;
         $result = array();
-        foreach ($this->extract_list($response['data'], array('attributes', 'items', 'data', 'result')) as $row) {
+        foreach ($this->extract_list($response['data'], array('categoryAttributes', 'attributes', 'items', 'data', 'result')) as $row) {
             $row = is_array($row) ? $row : (array) $row;
             $id = $row['id'] ?? $row['attributeId'] ?? null;
-            if ($id === null || (empty($row['required']) && empty($row['isRequired']) && empty($row['variant']) && empty($row['isVariant']))) continue;
+            $required = !empty($row['required']) || !empty($row['isRequired']);
+            $varianter = !empty($row['varianter']) || !empty($row['variant']) || !empty($row['isVariant']);
+            if ($id === null || (!$required && !$varianter)) continue;
             $values = array();
             foreach ((array) ($row['values'] ?? $row['attributeValues'] ?? array()) as $option) {
                 $option = is_array($option) ? $option : (array) $option;
                 $option_id = $option['id'] ?? $option['attributeValueId'] ?? null;
                 if ($option_id !== null) $values[] = array('id' => (string) $option_id, 'name' => (string) ($option['name'] ?? $option['value'] ?? ''));
             }
-            $result[] = array('id' => (string) $id, 'name' => (string) ($row['name'] ?? $row['attributeName'] ?? ''), 'required' => !empty($row['required']) || !empty($row['isRequired']), 'slicer' => false, 'varianter' => !empty($row['variant']) || !empty($row['isVariant']), 'allow_custom' => empty($values), 'values' => $values);
+            $result[] = array('id' => (string) $id, 'name' => (string) ($row['name'] ?? $row['attributeName'] ?? ''), 'required' => $required, 'slicer' => false, 'varianter' => $varianter, 'allow_custom' => empty($values), 'values' => $values);
         }
         return $result;
     }

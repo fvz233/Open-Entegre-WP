@@ -226,7 +226,11 @@ function MarketplaceCategoryMapping({ supplier, onSupplierUpdate }) {
                 )}
                 {attributes.map(attribute => (
                     <label key={attribute.id}>
-                        {attribute.name} {attribute.required ? '(zorunlu)' : '(varyasyon)'}
+                        {attribute.name} ({[
+                            attribute.required && 'zorunlu',
+                            (attribute.slicer || attribute.varianter) && 'varyasyon',
+                            !attribute.required && !attribute.slicer && !attribute.varianter && 'isteğe bağlı',
+                        ].filter(Boolean).join(', ')})
                         {attribute.values.length ? (
                             <select value={values[attribute.id] || ''} onChange={e => setValues({ ...values, [attribute.id]: e.target.value })}>
                                 <option value="">Preview'da ürün bazında doldur</option>

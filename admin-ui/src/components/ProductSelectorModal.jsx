@@ -28,6 +28,7 @@ function ProductSelectorModal({
     const [productTab, setProductTab] = useState('simple');
     const [variationChoices, setVariationChoices] = useState({});
     const [variationTargetChoices, setVariationTargetChoices] = useState({});
+    const [expandedProducts, setExpandedProducts] = useState(new Set());
 
     useEffect(() => {
         fetchPreview();
@@ -66,6 +67,7 @@ function ProductSelectorModal({
                 setPublishValues({});
                 setVariationChoices({});
                 setVariationTargetChoices({});
+                setExpandedProducts(new Set());
                 setProductTab('simple');
             } else {
                 const res = await api.previewSync(supplier.id);
@@ -128,6 +130,37 @@ function ProductSelectorModal({
 
     const getPublishValue = (item, field) => publishValues[itemKey(item)]?.[field.key] || '';
 
+    const toggleExpandedProduct = (item) => setExpandedProducts(current => {
+        const next = new Set(current);
+        const key = itemKey(item);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+    });
+
+    const hasPublishDetails = (item) => Array.isArray(item.attribute_fields) && item.attribute_fields.length > 0;
+
+    const renderAttributeOverrides = (item) => Array.isArray(item.attribute_fields) && item.attribute_fields.length > 0 && (
+        <div style={{ marginBottom: item.catalog_comparison ? '12px' : 0 }}>
+            <strong style={{ display: 'block', marginBottom: '7px' }}>Özellikleri değiştir</strong>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 16px' }}>
+                {item.attribute_fields.map(field => (
+                    <label key={field.key} style={{ display: 'grid', gap: '4px', minWidth: '220px', fontSize: '12px' }}>
+                        {field.label}
+                        {field.type === 'select' ? (
+                            <select value={getPublishValue(item, field)} onChange={e => updatePublishValue(item, field.key, e.target.value)}>
+                                <option value="">{field.matched_label || '-'}</option>
+                                {(field.options || []).map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+                            </select>
+                        ) : (
+                            <input value={getPublishValue(item, field)} placeholder={field.matched_label || ''} onChange={e => updatePublishValue(item, field.key, e.target.value)} />
+                        )}
+                    </label>
+                ))}
+            </div>
+        </div>
+    );
+
     const isVariationFieldResolved = (item, field) => {
         const values = publishValues[itemKey(item)] || {};
         return values.variation_attribute && field.key === `attribute_${values.variation_target_attribute_id}`;
@@ -184,40 +217,36 @@ function ProductSelectorModal({
         return String(value);
     };
 
-    const getChangeColor = (before, after, willUpdate) => {
-        if (!willUpdate) {
-            return '#667085';
-        }
+    const changeColors = { price: '#9a5b5b', sale: '#57728f', stock: '#5d7c66' };
 
-        const beforeNum = Number(before);
-        const afterNum = Number(after);
-        if (Number.isNaN(beforeNum) || Number.isNaN(afterNum)) {
-            return '#667085';
-        }
-
-        if (afterNum > beforeNum) {
-            return '#067647';
-        }
-        if (afterNum < beforeNum) {
-            return '#b42318';
-        }
-
-        return '#475467';
-    };
-
-    const renderBeforeAfterLines = (before, after, willUpdate, type = 'text') => {
+    const renderValueChange = (before, after, willUpdate, type, color) => {
         const beforeText = formatValue(before, type);
-        const effectiveAfter = willUpdate ? after : before;
-        const afterText = formatValue(effectiveAfter, type);
-        const afterColor = getChangeColor(before, effectiveAfter, willUpdate);
-
+        if (!willUpdate) return <span style={{ color: '#667085' }}>{beforeText}</span>;
         return (
             <div style={{ lineHeight: 1.35 }}>
-                <div style={{ color: '#667085' }}>Once: {beforeText}</div>
-                <div style={{ color: afterColor, fontWeight: 600 }}>Sonra: {afterText}</div>
+                <div style={{ display: 'inline-block', position: 'relative', color: '#667085' }}>
+                    {beforeText}
+                    <span aria-hidden="true" style={{ position: 'absolute', left: '-2px', right: '-2px', top: '50%', height: '1px', background: '#667085', transform: 'rotate(-8deg)', transformOrigin: 'center' }} />
+                </div>
+                <div style={{ color, fontWeight: 600 }}>{formatValue(after, type)}</div>
             </div>
         );
     };
+
+    const renderPublishPrice = (item) => {
+        const comparison = item.catalog_comparison;
+        if (!comparison || item.upload_action !== 'update') return <>{item.regular_price}{item.sale_price ? ` / ${item.sale_price}` : ''}</>;
+        return <>
+            {renderValueChange(comparison.price_before, comparison.price_after, comparison.price_before !== comparison.price_after, 'text', changeColors.price)}
+            {(comparison.sale_price_before !== '-' || comparison.sale_price_after !== '-') && <div style={{ marginTop: '5px' }}>
+                {renderValueChange(comparison.sale_price_before, comparison.sale_price_after, comparison.sale_price_before !== comparison.sale_price_after, 'text', changeColors.sale)}
+            </div>}
+        </>;
+    };
+
+    const renderPublishStock = (item) => item.catalog_comparison && item.upload_action === 'update'
+        ? renderValueChange(item.catalog_comparison.stock_before, item.catalog_comparison.stock_after, !!item.catalog_comparison.stock_changed, 'text', changeColors.stock)
+        : item.stock_quantity;
 
     const renderImportAction = (item) => isProductImportPreview && item.can_import !== false && item.import_action && (
         <small style={{ marginLeft: '7px', padding: '1px 5px', borderRadius: '8px', background: '#f1f5f9', color: '#64748b', fontSize: '10px', fontWeight: 500 }}>
@@ -340,7 +369,7 @@ function ProductSelectorModal({
                         <button type="button" className="btn" onClick={() => setProductTab('simple')} style={{ background: productTab === 'simple' ? '#2271b1' : '#eef2f6', color: productTab === 'simple' ? 'white' : '#333' }}>
                             Basit Urunler ({simpleItems.length})
                         </button>
-                        <button type="button" className="btn" onClick={() => setProductTab('variable')} style={{ background: productTab === 'variable' ? '#5b21b6' : '#eef2f6', color: productTab === 'variable' ? 'white' : '#333' }}>
+                        <button type="button" className="btn" onClick={() => setProductTab('variable')} style={{ background: productTab === 'variable' ? '#2271b1' : '#eef2f6', color: productTab === 'variable' ? 'white' : '#333' }}>
                             Varyasyonlu Urunler ({variableGroupCount})
                         </button>
                     </div>
@@ -366,9 +395,9 @@ function ProductSelectorModal({
                                             <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Gorsel</th>
                                             <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>SKU</th>
                                             <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Ad</th>
-                                            <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Stok (Once / Sonra)</th>
-                                            <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Fiyat (Once / Sonra)</th>
-                                            <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Indirimli Fiyat (Once / Sonra)</th>
+                                            <th style={{ padding: '8px', borderBottom: '1px solid #ddd', textAlign: 'center' }}>Stok</th>
+                                            <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Fiyat</th>
+                                            <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Indirimli Fiyat</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -391,20 +420,21 @@ function ProductSelectorModal({
                                                 </td>
                                                 <td style={{ padding: '8px' }}>{item.sku || <span style={{ color: 'red' }}>SKU Eksik</span>}</td>
                                                 <td style={{ padding: '8px' }}>{item.name || '-'}</td>
-                                                <td style={{ padding: '8px' }}>
-                                                    {renderBeforeAfterLines(item.before_stock, item.after_stock, !!item.will_update_stock, 'stock')}
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>
+                                                    {renderValueChange(item.before_stock, item.after_stock, !!item.will_update_stock, 'stock', changeColors.stock)}
                                                 </td>
                                                 <td style={{ padding: '8px' }}>
-                                                    {renderBeforeAfterLines(item.before_price, item.after_price, !!item.will_update_price, 'price')}
+                                                    {renderValueChange(item.before_price, item.after_price, !!item.will_update_price, 'price', changeColors.price)}
                                                 </td>
                                                 <td style={{ padding: '8px' }}>
-                                                    {renderBeforeAfterLines(
+                                                    {renderValueChange(
                                                         item.before_discount_price,
                                                         item.after_discount_price,
                                                         typeof item.will_update_discount_price === 'boolean'
                                                             ? item.will_update_discount_price
                                                             : !!item.will_update_price,
-                                                        'price'
+                                                        'price',
+                                                        changeColors.sale
                                                     )}
                                                 </td>
                                             </tr>
@@ -459,12 +489,12 @@ function ProductSelectorModal({
                                                             <th style={{ padding: '7px', borderBottom: '1px solid #e5e7eb' }}>Stok Kodu</th>
                                                             <th style={{ padding: '7px', borderBottom: '1px solid #e5e7eb' }}>Ad</th>
                                                             <th style={{ padding: '7px', borderBottom: '1px solid #e5e7eb' }}>Değer</th>
-                                                            {isProductPublishPreview && <th style={{ padding: '7px', borderBottom: '1px solid #e5e7eb' }}>Kategori Komisyonu</th>}
                                                             <th style={{ padding: '7px', borderBottom: '1px solid #e5e7eb' }}>Fiyat</th>
-                                                            <th style={{ padding: '7px', borderBottom: '1px solid #e5e7eb' }}>Stok</th>
+                                                            <th style={{ padding: '7px', borderBottom: '1px solid #e5e7eb', textAlign: 'center' }}>Stok</th>
                                                         </tr></thead>
                                                         <tbody>{children.map((item, i) => (
-                                                            <tr key={itemKey(item) || i} style={{ borderBottom: '1px solid #eef0f2' }}>
+                                                            <React.Fragment key={itemKey(item) || i}>
+                                                            <tr style={{ borderBottom: '1px solid #eef0f2' }}>
                                                                 <td style={{ padding: '7px' }}><input type="checkbox" checked={selectedSkus.has(itemKey(item))} onChange={() => handleToggle(itemKey(item))} disabled={!itemKey(item) || (isProductPublishPreview ? !isPublishReady(item) : item.can_import === false)} /></td>
                                                                 <td style={{ padding: '7px' }}>{item.preview_image ? <img src={item.preview_image} alt="" style={{ width: '42px', height: '42px', objectFit: 'cover' }} /> : '-'}</td>
                                                                 <td style={{ padding: '7px', fontWeight: 600 }}>{item.sku || <span style={{ color: 'red' }}>SKU Eksik</span>}</td>
@@ -472,7 +502,7 @@ function ProductSelectorModal({
                                                                    <div>{item.name || '-'}{renderImportAction(item)}</div>
                                                                     {isProductPublishPreview && renderPublishAction(item)}
                                                                    {item.preview_warning && (!isProductPublishPreview || !isPublishReady(item)) && <div style={{ color: '#b45309', fontSize: '12px' }}>{item.preview_warning}</div>}
-                                                                    {isProductPublishPreview && Array.isArray(item.missing_fields) && item.missing_fields.filter(field => !['variation_attribute', 'variation_target_attribute_id'].includes(field.key) && !isVariationFieldResolved(item, field)).map(field => (
+                                                                    {isProductPublishPreview && Array.isArray(item.missing_fields) && item.missing_fields.filter(field => !field.key.startsWith('attribute_') && !['variation_attribute', 'variation_target_attribute_id'].includes(field.key) && !isVariationFieldResolved(item, field)).map(field => (
                                                                         <label key={field.key} style={{ display: 'block', marginTop: '6px', fontSize: '12px' }}>
                                                                             {field.label}
                                                                             {field.type === 'select' ? (
@@ -483,12 +513,22 @@ function ProductSelectorModal({
                                                                             ) : <input type={field.type || 'text'} value={getPublishValue(item, field)} placeholder={field.suggested_value || ''} onChange={e => updatePublishValue(item, field.key, e.target.value)} style={{ marginLeft: '6px', maxWidth: '240px' }} />}
                                                                         </label>
                                                                     ))}
+                                                                    {isProductPublishPreview && Array.isArray(item.attribute_fields) && item.attribute_fields.length > 0 && <>
+                                                                        <button type="button" onClick={() => toggleExpandedProduct(item)} style={{ marginTop: '7px', marginLeft: '7px', padding: 0, border: 0, background: 'none', cursor: 'pointer', color: '#2271b1' }}>
+                                                                            {expandedProducts.has(itemKey(item)) ? '▼' : '▶'} Özellikleri değiştir
+                                                                        </button>
+                                                                    </>}
                                                                 </td>
-                                                                <td style={{ padding: '7px', color: '#5b21b6' }}>{isProductImportPreview ? ((item.variation_attributes || {})[variationChoices[parentKey]] || '-') : (Object.values(item.variation_attributes || {}).join(', ') || '-')}</td>
-                                                                {isProductPublishPreview && <td style={{ padding: '7px' }}>{item.category_commission_rate ? `%${item.category_commission_rate}` : '-'}</td>}
-                                                                <td style={{ padding: '7px' }}>{item.regular_price}{item.sale_price ? ` / ${item.sale_price}` : ''}</td>
-                                                                <td style={{ padding: '7px' }}>{item.stock_quantity}</td>
+                                                                <td style={{ padding: '7px', color: '#2271b1' }}>{isProductImportPreview ? ((item.variation_attributes || {})[variationChoices[parentKey]] || '-') : (Object.values(item.variation_attributes || {}).join(', ') || '-')}</td>
+                                                                <td style={{ padding: '7px' }}>{isProductPublishPreview ? renderPublishPrice(item) : <>{item.regular_price}{item.sale_price ? ` / ${item.sale_price}` : ''}</>}</td>
+                                                                <td style={{ padding: '7px', textAlign: 'center' }}>{isProductPublishPreview ? renderPublishStock(item) : item.stock_quantity}</td>
                                                             </tr>
+                                                            {isProductPublishPreview && expandedProducts.has(itemKey(item)) && (
+                                                                <tr style={{ background: '#f8fafc' }}>
+                                                                    <td colSpan={7} style={{ padding: '10px 16px', borderBottom: '1px solid #eef0f2' }}>{renderAttributeOverrides(item)}</td>
+                                                                </tr>
+                                                            )}
+                                                            </React.Fragment>
                                                         ))}</tbody>
                                                     </table>
                                                 </div>
@@ -510,14 +550,13 @@ function ProductSelectorModal({
                                             <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>SKU</th>
                                             <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Ad</th>
                                             {isProductImportPreview && productTab === 'variable' && <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Varyasyon Ozelligi</th>}
-                                            {isProductPublishPreview && <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Kategori Komisyonu</th>}
                                             <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Fiyat</th>
-                                            <th style={{ padding: '8px', borderBottom: '1px solid #ddd' }}>Stok</th>
+                                            <th style={{ padding: '8px', borderBottom: '1px solid #ddd', textAlign: 'center' }}>Stok</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {visibleItems.length === 0 ? (
-                                            <tr><td colSpan={isProductPublishPreview ? 7 : (isProductImportPreview && productTab === 'variable' ? 7 : 6)} style={{ padding: '20px', textAlign: 'center' }}>Urun bulunamadi.</td></tr>
+                                            <tr><td colSpan={isProductPublishPreview ? 6 : (isProductImportPreview && productTab === 'variable' ? 7 : 6)} style={{ padding: '20px', textAlign: 'center' }}>Urun bulunamadi.</td></tr>
                                         ) : visibleItems.map((item, i) => (
                                             <React.Fragment key={itemKey(item) || i}>
                                             <tr style={{ borderBottom: '1px solid #eee' }}>
@@ -528,10 +567,11 @@ function ProductSelectorModal({
                                                         onChange={() => handleToggle(itemKey(item))}
                                                         disabled={!itemKey(item) || (isProductPublishPreview ? !isPublishReady(item) : item.can_import === false)}
                                                     />
-                                                    {isProductPublishPreview && item.catalog_comparison && (
+                                                    {isProductPublishPreview && hasPublishDetails(item) && (
                                                         <span style={{ cursor: 'pointer', fontSize: '14px', marginLeft: '4px', color: '#667eea', userSelect: 'none', verticalAlign: 'middle' }}
-                                                            onClick={() => { const row = document.getElementById('publish-expand-' + itemKey(item)); if (row) row.style.display = row.style.display === 'none' ? '' : 'none'; }}
-                                                            >&#9654;</span>
+                                                            onClick={() => toggleExpandedProduct(item)}
+                                                            role="button" aria-label="Ürün niteliklerini aç veya kapat"
+                                                            >{expandedProducts.has(itemKey(item)) ? '▼' : '▶'}</span>
                                                     )}
                                                 </td>
                                                 <td style={{ padding: '8px' }}>
@@ -546,12 +586,12 @@ function ProductSelectorModal({
                                                    <div>{item.name}{renderImportAction(item)}</div>
                                                     {isProductPublishPreview && renderPublishAction(item)}
                                                    {item.row_type === 'variation' && (
-                                                        <small style={{ color: '#5b21b6' }}>Variation · Parent: {item.variation_parent_key}</small>
+                                                        <small style={{ color: '#2271b1' }}>Variation · Parent: {item.variation_parent_key}</small>
                                                     )}
                                                     {item.preview_warning && (
                                                         <div style={{ color: '#b45309', fontSize: '12px' }}>{item.preview_warning}</div>
                                                     )}
-                                                    {isProductPublishPreview && Array.isArray(item.missing_fields) && item.missing_fields.map(field => (
+                                                    {isProductPublishPreview && Array.isArray(item.missing_fields) && item.missing_fields.filter(field => !field.key.startsWith('attribute_')).map(field => (
                                                         <label key={field.key} style={{ display: 'block', marginTop: '6px', fontSize: '12px' }}>
                                                             {field.label}
                                                             {field.type === 'select' ? (
@@ -584,42 +624,20 @@ function ProductSelectorModal({
                                                         >
                                                             {(item.variation_attribute_options || []).map(option => <option key={option} value={option}>{option}</option>)}
                                                         </select>
-                                                        <div style={{ marginTop: '4px', color: '#5b21b6', fontSize: '12px' }}>
+                                                        <div style={{ marginTop: '4px', color: '#2271b1', fontSize: '12px' }}>
                                                             {(item.variation_attributes || {})[variationChoices[item.variation_parent_key]] || '-'}
                                                         </div>
                                                     </td>
                                                 )}
-                                                {isProductPublishPreview && (
-                                                    <td style={{ padding: '8px' }}>
-                                                        {item.category_commission_rate ? `%${item.category_commission_rate}` : '-'}
-                                                    </td>
-                                                )}
                                                 <td style={{ padding: '8px' }}>
-                                                    {item.regular_price}{item.sale_price ? ` / ${item.sale_price}` : ''}
+                                                    {isProductPublishPreview ? renderPublishPrice(item) : <>{item.regular_price}{item.sale_price ? ` / ${item.sale_price}` : ''}</>}
                                                 </td>
-                                                <td style={{ padding: '8px' }}>{item.stock_quantity}</td>
+                                                <td style={{ padding: '8px', textAlign: 'center' }}>{isProductPublishPreview ? renderPublishStock(item) : item.stock_quantity}</td>
                                             </tr>
-                                            {isProductPublishPreview && item.catalog_comparison && (
-                                                <tr id={'publish-expand-' + itemKey(item)} style={{ display: 'none', background: '#f8fafc' }}>
-                                                    <td colSpan={7} style={{ padding: '10px 16px', borderBottom: '1px solid #eee' }}>
-                                                        <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
-                                                            <thead><tr>
-                                                                <th style={{ padding: '4px 8px', borderBottom: '1px solid #dfe3e8', textAlign: 'left', color: '#667085' }}></th>
-                                                                <th style={{ padding: '4px 8px', borderBottom: '1px solid #dfe3e8', textAlign: 'left', color: '#667085' }}>Pazar Yeri (Once)</th>
-                                                                <th style={{ padding: '4px 8px', borderBottom: '1px solid #dfe3e8', textAlign: 'left', color: '#667085' }}>WooCommerce (Sonra)</th>
-                                                            </tr></thead>
-                                                            <tbody>
-                                                                {[['Fiyat', 'price_before', 'price_after', 'price_changed'], ['Indirimli Fiyat', 'sale_price_before', 'sale_price_after', null], ['Stok', 'stock_before', 'stock_after', 'stock_changed']].map(([label, beforeKey, afterKey, changedKey]) => (
-                                                                    <tr key={label}>
-                                                                        <td style={{ padding: '4px 8px', fontWeight: 600 }}>{label}</td>
-                                                                        <td style={{ padding: '4px 8px', color: '#475467' }}>{item.catalog_comparison[beforeKey]}</td>
-                                                                        <td style={{ padding: '4px 8px', color: changedKey && item.catalog_comparison[changedKey] ? '#067647' : '#475569', fontWeight: (changedKey && item.catalog_comparison[changedKey]) ? 600 : 400 }}>
-                                                                            {item.catalog_comparison[afterKey]}
-                                                                        </td>
-                                                                    </tr>
-                                                                ))}
-                                                            </tbody>
-                                                        </table>
+                                            {isProductPublishPreview && hasPublishDetails(item) && expandedProducts.has(itemKey(item)) && (
+                                                <tr style={{ background: '#f8fafc' }}>
+                                                    <td colSpan={6} style={{ padding: '10px 16px', borderBottom: '1px solid #eee' }}>
+                                                        {renderAttributeOverrides(item)}
                                                     </td>
                                                 </tr>
                                             )}
