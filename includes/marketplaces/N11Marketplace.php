@@ -503,7 +503,7 @@ class N11Marketplace extends BaseMarketplace
     private function product_images($product, $parent, $override = '')
     {
         $ids = $parent
-            ? array_merge(array($parent->get_image_id()), $parent->get_gallery_image_ids(), array($product->get_image_id()))
+            ? array($product->get_image_id())
             : array_merge(array($product->get_image_id()), $product->get_gallery_image_ids());
         $images = array();
         if (preg_match('#^https?://#i', $override)) $images[] = array('url' => esc_url_raw($override), 'order' => 0);

@@ -146,7 +146,7 @@ $n11_variation = (new MultiSync\Marketplaces\N11Marketplace())->build_product_it
 ));
 check(!is_wp_error($n11_variation) && $n11_variation['productMainId'] === 'PARENT-SKU' && $n11_variation['stockCode'] === 'COLORFULL-SKU', 'n11 variation identifiers were not separated.');
 check($n11_variation['attributes'][0]['customValue'] === 'Colorfull', 'n11 variation attribute was not mapped.');
-check(array_column($n11_variation['images'], 'url') === array('http://example.test/7.jpg', 'http://example.test/8.jpg', 'http://example.test/9.jpg'), 'n11 parent/variation image order is wrong.');
+check(array_column($n11_variation['images'], 'url') === array('http://example.test/9.jpg'), 'n11 variation payload included parent images.');
 $expand = new ReflectionMethod(MultiSync\Sync\ProductPublisher::class, 'expand_variation_product_ids');
 $expand->setAccessible(true);
 check($expand->invoke(new MultiSync\Sync\ProductPublisher(), array(41)) === array(41, 42), 'n11 selected variation did not expand to its whole family.');
