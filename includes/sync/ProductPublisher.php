@@ -118,6 +118,9 @@ class ProductPublisher
         $adapter = $context['adapter'];
         $supplier = $context['supplier'];
         $marketplace_key = (string) $context['marketplace_key'];
+        if ($marketplace_key === 'n11') {
+            $product_ids = $this->expand_variation_product_ids($product_ids);
+        }
         $supports_update = is_callable(array($adapter, 'build_price_inventory_item_from_product'))
             && is_callable(array($adapter, 'push_price_inventory_updates'));
 
@@ -736,5 +739,22 @@ class ProductPublisher
             }
         }
         return $products;
+    }
+
+    private function expand_variation_product_ids($product_ids)
+    {
+        $expanded = array();
+        foreach (array_filter(array_map('absint', (array) $product_ids)) as $product_id) {
+            $product = wc_get_product($product_id);
+            if ($product && $product->is_type('variation')) {
+                $product = wc_get_product($product->get_parent_id());
+            }
+            if ($product && $product->is_type('variable')) {
+                $expanded = array_merge($expanded, $product->get_children());
+            } else {
+                $expanded[] = $product_id;
+            }
+        }
+        return array_values(array_unique(array_map('absint', $expanded)));
     }
 }

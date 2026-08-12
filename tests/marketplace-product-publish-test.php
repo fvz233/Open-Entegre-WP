@@ -14,6 +14,7 @@ class WP_Error
 function is_wp_error($value) { return $value instanceof WP_Error; }
 function check($condition, $message) { if (!$condition) throw new RuntimeException($message); }
 function sanitize_text_field($value) { return trim((string) $value); }
+function absint($value) { return abs((int) $value); }
 function esc_url_raw($value) { return (string) $value; }
 function esc_html($value) { return htmlspecialchars((string) $value, ENT_QUOTES | ENT_XML1, 'UTF-8'); }
 function wp_json_encode($value, $flags = 0) { return json_encode($value, $flags); }
@@ -26,7 +27,7 @@ function wp_remote_retrieve_response_code($response) { return $response['code'];
 function wp_remote_retrieve_body($response) { return $response['body']; }
 function taxonomy_exists($name) { return false; }
 function remove_accents($value) { return strtr($value, array('ı' => 'i', 'İ' => 'I', 'ş' => 's', 'Ş' => 'S', 'ü' => 'u', 'Ü' => 'U', 'ö' => 'o', 'Ö' => 'O', 'ç' => 'c', 'Ç' => 'C', 'ğ' => 'g', 'Ğ' => 'G')); }
-function wc_get_product($id) { return (int) $id === 21 ? ($GLOBALS['hepsiburada_parent'] ?? null) : null; }
+function wc_get_product($id) { return $GLOBALS['woo_products'][(int) $id] ?? ((int) $id === 21 ? ($GLOBALS['hepsiburada_parent'] ?? null) : null); }
 function get_woocommerce_currency() { return 'TRY'; }
 
 require_once dirname(__DIR__) . '/includes/marketplaces/MarketplaceInterface.php';
@@ -71,6 +72,34 @@ class CiceksepetiFixture extends MultiSync\Marketplaces\CiceksepetiMarketplace
     protected function request_json($method, $url, $supplier, $body = null) { return $this->response; }
 }
 
+class N11Fixture extends MultiSync\Marketplaces\N11Marketplace
+{
+    public $body = array();
+    protected function request_json($method, $url, $supplier, $body = null) { $this->body = $body; return array('data' => array('id' => 1)); }
+}
+
+class N11VariableParent extends MarketplacePublishProduct
+{
+    public function is_type($type) { return $type === 'variable'; }
+    public function get_id() { return 31; }
+    public function get_sku() { return 'PARENT-SKU'; }
+    public function get_gallery_image_ids() { return array(8); }
+    public function get_children() { return array(41, 42); }
+}
+
+class N11VariationProduct extends MarketplacePublishProduct
+{
+    private $id;
+    private $sku;
+    public function __construct($id, $sku) { $this->id = $id; $this->sku = $sku; }
+    public function is_type($type) { return $type === 'variation'; }
+    public function get_id() { return $this->id; }
+    public function get_parent_id() { return 31; }
+    public function get_sku() { return $this->sku; }
+    public function get_image_id() { return 9; }
+    public function get_attributes() { return array('pa_renk' => 'colorfull'); }
+}
+
 class HepsiburadaParentProduct extends MarketplacePublishProduct
 {
     public function get_sku() { return 'parent 1'; }
@@ -106,6 +135,23 @@ $n11_brand_mapping = (new MultiSync\Marketplaces\N11Marketplace())->build_produc
 check(!is_wp_error($n11_brand_mapping) && $n11_brand_mapping['attributes'][0]['valueId'] === 99, 'n11 brand mapping was not reused for category attribute.');
 $n11_commission = (new MultiSync\Marketplaces\N11Marketplace())->build_price_inventory_item_from_product($product, false, true, 10);
 check($n11_commission['listPrice'] === 133.0 && $n11_commission['salePrice'] === 111.0, 'Category commission was not applied to marketplace prices.');
+$GLOBALS['woo_products'] = array(31 => new N11VariableParent(), 41 => new N11VariationProduct(41, 'COLORFULL-SKU'), 42 => new N11VariationProduct(42, 'BLACK-SKU'));
+$n11_mapping = array(
+    'shipment_template' => 'Global Standart',
+    'attribute_definitions' => array(array('id' => '2', 'name' => 'Renk', 'required' => true, 'varianter' => true, 'allow_custom' => true, 'values' => array())),
+);
+$n11_variation = (new MultiSync\Marketplaces\N11Marketplace())->build_product_item_from_product($GLOBALS['woo_products'][41], $n11_mapping, array(
+    'category_id' => '100', 'vat_rate' => '20', 'variation_attribute' => 'pa_renk', 'variation_target_attribute_id' => '2',
+));
+check(!is_wp_error($n11_variation) && $n11_variation['productMainId'] === 'PARENT-SKU' && $n11_variation['stockCode'] === 'COLORFULL-SKU', 'n11 variation identifiers were not separated.');
+check($n11_variation['attributes'][0]['customValue'] === 'Colorfull', 'n11 variation attribute was not mapped.');
+check(array_column($n11_variation['images'], 'url') === array('http://example.test/7.jpg', 'http://example.test/8.jpg', 'http://example.test/9.jpg'), 'n11 parent/variation image order is wrong.');
+$expand = new ReflectionMethod(MultiSync\Sync\ProductPublisher::class, 'expand_variation_product_ids');
+$expand->setAccessible(true);
+check($expand->invoke(new MultiSync\Sync\ProductPublisher(), array(41)) === array(41, 42), 'n11 selected variation did not expand to its whole family.');
+$n11_fixture = new N11Fixture();
+$n11_fixture->push_products((object) array(), array($n11_variation, array_merge($n11_variation, array('stockCode' => 'BLACK-SKU'))));
+check(count($n11_fixture->body['payload']['skus']) === 2 && count(array_unique(array_column($n11_fixture->body['payload']['skus'], 'productMainId'))) === 1, 'n11 variants were not sent as sibling SKUs under one productMainId.');
 
 $pazarama = (new MultiSync\Marketplaces\PazaramaMarketplace())->build_product_item_from_product($product, array(
     'commission_rate' => 10,

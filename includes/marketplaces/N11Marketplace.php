@@ -391,7 +391,21 @@ class N11Marketplace extends BaseMarketplace
         foreach ((array) ($category_mapping['attributes'] ?? array()) as $mapped) {
             if (!empty($mapped['attributeId'])) $mapped_attributes[(string) $mapped['attributeId']] = (string) (($mapped['attributeValueIds'][0] ?? null) ?: ($mapped['attributeValue'] ?? ''));
         }
-        $color = $this->variation_color($product, $parent);
+        $selected_variation_attribute = $value('variation_attribute');
+        $selected_variation_target = (int) $value('variation_target_attribute_id');
+        $variation_value = $this->variation_value($product, $parent, $selected_variation_attribute);
+        if ($parent && $selected_variation_attribute === '') {
+            $missing[] = array('key' => 'variation_attribute', 'label' => 'WooCommerce kaynak alani', 'type' => 'select', 'options' => array_map(function ($name) use ($parent) {
+                return array('id' => $name, 'name' => function_exists('wc_attribute_label') ? wc_attribute_label($name, $parent) : $name);
+            }, array_keys((array) $product->get_attributes())));
+        }
+        if ($parent && $selected_variation_target <= 0) {
+            $missing[] = array('key' => 'variation_target_attribute_id', 'label' => 'n11 hedef niteligi', 'type' => 'select', 'options' => array_values(array_map(function ($definition) {
+                return array('id' => (string) ($definition['id'] ?? ''), 'name' => (string) ($definition['name'] ?? ''));
+            }, array_filter((array) ($category_mapping['attribute_definitions'] ?? array()), function ($definition) {
+                return is_array($definition) && !empty($definition['id']) && (!empty($definition['slicer']) || !empty($definition['varianter']));
+            }))));
+        }
         foreach ((array) ($category_mapping['attribute_definitions'] ?? array()) as $definition) {
             $id = (string) ($definition['id'] ?? '');
             if ($id === '') {
@@ -400,9 +414,9 @@ class N11Marketplace extends BaseMarketplace
             $input = $value('attribute_' . $id);
             if ($input === '') $input = $mapped_attributes[$id] ?? '';
             if ($input === '' && $this->normalized_name($definition['name'] ?? '') === 'marka') $input = (string) ($category_mapping['brand_id'] ?? $category_mapping['brand_name'] ?? '');
-            $is_color = $this->normalized_name($definition['name'] ?? '') === 'renk';
-            if ($input === '' && $is_color) {
-                $input = $color;
+            $is_variation_target = $selected_variation_target === (int) $id;
+            if ($is_variation_target && $variation_value !== '' && empty($overrides['attribute_' . $id])) {
+                $input = $variation_value;
             }
             $is_desi = $this->normalized_name($definition['name'] ?? '') === 'desi';
             if ($input === '' && $is_desi) {
@@ -410,7 +424,7 @@ class N11Marketplace extends BaseMarketplace
             }
             $selected = null;
             foreach ((array) ($definition['values'] ?? array()) as $option) {
-                if ((string) ($option['id'] ?? '') === $input || ($is_color && $this->normalized_name($option['name'] ?? '') === $this->normalized_name($input))) {
+                if ((string) ($option['id'] ?? '') === $input || $this->normalized_name($option['name'] ?? '') === $this->normalized_name($input)) {
                     $selected = (string) $option['id'];
                     break;
                 }
@@ -419,8 +433,8 @@ class N11Marketplace extends BaseMarketplace
                 $attributes[] = array('id' => (int) $id, 'valueId' => (int) $selected, 'customValue' => null);
             } elseif ($input !== '' && !empty($definition['allow_custom'])) {
                 $attributes[] = array('id' => (int) $id, 'valueId' => null, 'customValue' => sanitize_text_field($input));
-            } elseif (!empty($definition['required']) || ($parent && $is_color)) {
-                $missing[] = array('key' => 'attribute_' . $id, 'label' => (string) ($definition['name'] ?? $id), 'type' => !empty($definition['values']) ? 'select' : 'text', 'options' => (array) ($definition['values'] ?? array()), 'suggested_value' => $is_color ? $color : '');
+            } elseif (!empty($definition['required']) || $is_variation_target) {
+                $missing[] = array('key' => 'attribute_' . $id, 'label' => (string) ($definition['name'] ?? $id), 'type' => !empty($definition['values']) ? 'select' : 'text', 'options' => (array) ($definition['values'] ?? array()), 'suggested_value' => $is_variation_target ? $variation_value : '');
             }
         }
         $price = $this->build_price_inventory_item_from_product($product, true, true, $category_mapping['commission_rate'] ?? null);
@@ -449,12 +463,12 @@ class N11Marketplace extends BaseMarketplace
         return is_wp_error($response) ? $response : $response['data'];
     }
 
-    private function variation_color($product, $parent)
+    private function variation_value($product, $parent, $selected_attribute)
     {
-        if (!$parent) return '';
+        if (!$parent || $selected_attribute === '') return '';
         foreach ((array) $product->get_attributes() as $name => $value) {
             $label = function_exists('wc_attribute_label') ? wc_attribute_label($name, $parent) : $name;
-            if ($this->normalized_name($label) !== 'renk' && count($product->get_attributes()) !== 1) continue;
+            if ($selected_attribute !== $name && $selected_attribute !== $label) continue;
             if (taxonomy_exists($name)) {
                 $term = get_term_by('slug', $value, $name);
                 if ($term && !is_wp_error($term)) return (string) $term->name;
@@ -475,7 +489,9 @@ class N11Marketplace extends BaseMarketplace
 
     private function product_images($product, $parent, $override = '')
     {
-        $ids = array_merge(array($product->get_image_id()), $parent ? array($parent->get_image_id()) : array(), $parent ? $parent->get_gallery_image_ids() : $product->get_gallery_image_ids());
+        $ids = $parent
+            ? array_merge(array($parent->get_image_id()), $parent->get_gallery_image_ids(), array($product->get_image_id()))
+            : array_merge(array($product->get_image_id()), $product->get_gallery_image_ids());
         $images = array();
         if (preg_match('#^https?://#i', $override)) $images[] = array('url' => esc_url_raw($override), 'order' => 0);
         foreach (array_unique(array_filter($ids)) as $id) {
