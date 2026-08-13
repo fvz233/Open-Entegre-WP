@@ -465,11 +465,7 @@ function ProductSelectorModal({
                                         const selectable = children.filter(item => itemKey(item) && (isProductPublishPreview ? isPublishReady(item) : item.can_import !== false));
                                         const allSelected = selectable.length > 0 && selectable.every(item => selectedSkus.has(itemKey(item)));
                                         const first = children[0];
-                                        const targetOptions = (first.variation_target_options || []).length
-                                            ? first.variation_target_options
-                                            : (first.attribute_fields || [])
-                                                .filter(field => ['renk', 'color', 'web color'].includes(String(field.label || '').trim().toLocaleLowerCase('tr-TR')))
-                                                .map(field => ({ id: field.key.replace('attribute_', ''), name: field.label }));
+                                        const targetOptions = first.variation_target_options || [];
                                         return (
                                             <details key={parentKey} style={{ marginBottom: '8px', border: '1px solid #dfe3e8', borderRadius: '7px', background: '#f8fafc', overflow: 'hidden' }}>
                                                 <summary style={{ padding: '12px', cursor: 'pointer', fontWeight: 600, color: '#1f2937' }}>
@@ -491,7 +487,7 @@ function ProductSelectorModal({
                                                             <span style={{ color: '#667085' }}>→</span>
                                                             <label style={{ fontSize: '12px', fontWeight: 600 }}>{(supplier?.name || 'Pazar yeri')} hedef niteliği</label>
                                                             <select value={variationTargetChoices[parentKey] || ''} onChange={e => setVariationTarget(parentKey, children, e.target.value)} disabled={targetOptions.length === 0}>
-                                                                <option value="">{targetOptions.length ? 'Karşılık gelen niteliği seçin' : 'Kategori niteliği bulunamadı'}</option>
+                                                                <option value="">{targetOptions.length ? 'Karşılık gelen niteliği seçin' : 'API varyasyon niteliği döndürmedi'}</option>
                                                                 {targetOptions.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
                                                             </select>
                                                         </>}
