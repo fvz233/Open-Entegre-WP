@@ -467,7 +467,9 @@ function ProductSelectorModal({
                                         const first = children[0];
                                         const targetOptions = (first.variation_target_options || []).length
                                             ? first.variation_target_options
-                                            : (first.attribute_fields || []).map(field => ({ id: field.key.replace('attribute_', ''), name: field.label }));
+                                            : (first.attribute_fields || [])
+                                                .filter(field => ['renk', 'color', 'web color'].includes(String(field.label || '').trim().toLocaleLowerCase('tr-TR')))
+                                                .map(field => ({ id: field.key.replace('attribute_', ''), name: field.label }));
                                         return (
                                             <details key={parentKey} style={{ marginBottom: '8px', border: '1px solid #dfe3e8', borderRadius: '7px', background: '#f8fafc', overflow: 'hidden' }}>
                                                 <summary style={{ padding: '12px', cursor: 'pointer', fontWeight: 600, color: '#1f2937' }}>
