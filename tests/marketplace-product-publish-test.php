@@ -44,6 +44,7 @@ class MarketplacePublishProduct
 {
     public function is_type($type) { return $type === 'simple'; }
     public function get_sku() { return '8690000000001'; }
+    public function get_global_unique_id() { return '9780201379624'; }
     public function get_meta($key) { return ''; }
     public function get_stock_quantity() { return 4; }
     public function get_regular_price() { return '120'; }
@@ -213,6 +214,7 @@ $hepsiburada_mapping = array(
 );
 $hb_item = $hepsiburada->build_product_item_from_product($product, $hepsiburada_mapping);
 check(!is_wp_error($hb_item) && $hb_item['attributes']['merchantSku'] === '8690000000001', 'Hepsiburada SKU mapping failed.');
+check($hb_item['attributes']['Barcode'] === '9780201379624', 'Hepsiburada barcode was not read from the WooCommerce GTIN, UPC, EAN or ISBN field.');
 check($hb_item['attributes']['price'] === '111,00', 'Hepsiburada category commission failed.');
 check($hb_item['attributes']['material'] === 'Çelik', 'Hepsiburada enum value mapping failed.');
 check($hb_item['attributes']['Image1'] === 'http://example.test/7.jpg', 'Hepsiburada HTTP image mapping failed.');

@@ -12,17 +12,12 @@ if (!defined('ABSPATH')) {
 
 function resolve_commission_rate($product_rates, $marketplace_key, $default_rate)
 {
-    return is_array($product_rates) && array_key_exists($marketplace_key, $product_rates)
-        ? (float) $product_rates[$marketplace_key]
-        : (float) $default_rate;
+    return (float) $default_rate;
 }
 
 function resolve_inherited_commission_rate($variation_rates, $parent_rates, $marketplace_key, $default_rate)
 {
-    if (is_array($variation_rates) && array_key_exists($marketplace_key, $variation_rates)) {
-        return (float) $variation_rates[$marketplace_key];
-    }
-    return resolve_commission_rate($parent_rates, $marketplace_key, $default_rate);
+    return (float) $default_rate;
 }
 
 function group_variation_products($products, $variation_choices = array())
@@ -735,12 +730,7 @@ class ProductImporter
             $product->set_name((string) $data['name']);
         }
         $marketplace_key = sanitize_key((string) $supplier->marketplace_key);
-        $rate = resolve_inherited_commission_rate(
-            $product->get_meta('_multi_sync_commission_rates', true),
-            $parent ? $parent->get_meta('_multi_sync_commission_rates', true) : array(),
-            $marketplace_key,
-            $supplier ? $supplier->commission_rate : 0
-        );
+        $rate = resolve_commission_rate(array(), $marketplace_key, $supplier ? $supplier->commission_rate : 0);
         $factor = 1 - ($rate / 100);
         if (isset($data['regular_price']) && is_numeric($data['regular_price'])) {
             $regular = round(max(0, (float) $data['regular_price'] * $factor), 2);

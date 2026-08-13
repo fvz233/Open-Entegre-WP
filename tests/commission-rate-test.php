@@ -7,8 +7,8 @@ use function MultiSync\Sync\resolve_commission_rate;
 
 $cases = array(
     array(array(), 'trendyol', 12, 12.0),
-    array(array('trendyol' => 8.5), 'trendyol', 12, 8.5),
-    array(array('trendyol' => 0), 'trendyol', 12, 0.0),
+    array(array('trendyol' => 8.5), 'trendyol', 12, 12.0),
+    array(array('trendyol' => 0), 'trendyol', 12, 12.0),
 );
 
 foreach ($cases as $case) {

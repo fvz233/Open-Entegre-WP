@@ -36,6 +36,7 @@ class PublishProduct
     public function get_sku() { return 'SKU-1'; }
     public function get_meta($key) { return array(
         '_multi_sync_trendyol_brand_id' => '12', '_multi_sync_trendyol_category_id' => '34',
+        '_multi_sync_desi' => '3',
         '_multi_sync_trendyol_dimensional_weight' => '2',
         '_multi_sync_vat_rate' => '20', '_multi_sync_trendyol_attributes' => '[{"attributeId":1,"attributeValueId":2}]',
     )[$key] ?? ''; }
@@ -123,6 +124,7 @@ class DesignVariationProduct extends ColorVariationProduct
 $item = (new MultiSync\Marketplaces\TrendyolMarketplace())->build_product_item_from_product(new PublishProduct());
 check(!is_wp_error($item), 'Valid Woo product was rejected.');
 check($item['barcode'] === 'SKU-1' && $item['categoryId'] === 34 && $item['salePrice'] === 90.0, 'Trendyol payload mapping failed.');
+check($item['dimensionalWeight'] === 3.0, 'Shared product desi did not override the legacy Trendyol desi.');
 check($item['images'][0]['url'] === 'http://example.test/7.jpg', 'HTTP image mapping failed.');
 $fixture = new PublishTrendyolFixture();
 $result = $fixture->push_products((object) array('api_key' => 'key', 'api_secret' => 'secret', 'seller_id' => '42'), array($item));
@@ -150,16 +152,18 @@ $unmapped_variation = $category_fixture->build_product_item_from_product(new Col
 ));
 $unmapped_fields = is_wp_error($unmapped_variation) ? array_column($unmapped_variation->get_error_data()['fields'], 'key') : array();
 check(in_array('variation_attribute', $unmapped_fields, true) && in_array('variation_target_attribute_id', $unmapped_fields, true), 'Unselected variation mapping was accepted.');
+$standalone_variation = $category_fixture->build_product_item_from_product(new ColorVariationProduct('Inox'), array('category_id' => 34));
+check(!is_wp_error($standalone_variation) && $standalone_variation['productMainId'] === $standalone_variation['stockCode'], 'A category without variant fields did not export the variation as a standalone product.');
 foreach (array('Osmanlı Arması', 'Türk Bayraklı', 'Inox') as $color) {
     $variation = $category_fixture->build_product_item_from_product(new ColorVariationProduct($color), array(
         'category_id' => 34,
-        'attribute_definitions' => array(array('id' => 99, 'name' => 'Renk', 'required' => true, 'allow_custom' => true, 'values' => array())),
+        'attribute_definitions' => array(array('id' => 99, 'name' => 'Renk', 'required' => true, 'slicer' => true, 'allow_custom' => true, 'values' => array())),
     ), array('variation_attribute' => 'pa_renk', 'variation_target_attribute_id' => '99'));
     check(!is_wp_error($variation) && $variation['attributes'][1]['attributeValue'] === $color, 'Woo color variation was not sent as Trendyol Renk: ' . $color);
 }
 $selected_design = $category_fixture->build_product_item_from_product(new DesignVariationProduct('unused'), array(
     'category_id' => 34,
-    'attribute_definitions' => array(array('id' => 99, 'name' => 'Renk', 'required' => true, 'allow_custom' => true, 'values' => array())),
+    'attribute_definitions' => array(array('id' => 99, 'name' => 'Renk', 'required' => true, 'slicer' => true, 'allow_custom' => true, 'values' => array())),
 ), array('variation_attribute' => 'pa_tasarim', 'variation_target_attribute_id' => '99'));
 check(!is_wp_error($selected_design) && $selected_design['attributes'][1]['attributeValue'] === 'Osmanlı Arması', 'Selected Woo variation field was not sent as Trendyol Renk.');
 $mapping_method = new ReflectionMethod(MultiSync\Sync\ProductPublisher::class, 'category_mapping');

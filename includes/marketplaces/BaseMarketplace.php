@@ -120,6 +120,9 @@ abstract class BaseMarketplace implements MarketplaceInterface
         }
         $desi = trim((string) $product->get_meta('_multi_sync_desi', true));
         if ($desi === '') {
+            $desi = trim((string) $product->get_meta('_multi_sync_trendyol_dimensional_weight', true));
+        }
+        if ($desi === '') {
             $estimated = $this->estimate_desi_from_dimensions($product);
             if ($estimated !== '') {
                 return $estimated;

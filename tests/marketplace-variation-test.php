@@ -204,8 +204,8 @@ $n11_price = $n11->build_price_inventory_item_from_product(new FakeProduct(), fa
 check($n11_price['listPrice'] === 120.0 && $n11_price['salePrice'] === 99.0, 'n11 list/sale price payload is wrong.');
 check((new N11VatFixture())->vat(new CommissionVariationProduct()) === '10' && (new TrendyolVatFixture())->vat(new CommissionVariationProduct()) === '10', 'Global VAT was not shared across marketplaces or inherited from the parent product.');
 
-check(resolve_inherited_commission_rate(array('trendyol' => 3), array('trendyol' => 5), 'trendyol', 8) === 3.0, 'Variation commission override failed.');
-check(resolve_inherited_commission_rate(array(), array('trendyol' => 5), 'trendyol', 8) === 5.0, 'Parent commission inheritance failed.');
+check(resolve_inherited_commission_rate(array('trendyol' => 3), array('trendyol' => 5), 'trendyol', 8) === 8.0, 'Product commission override was not ignored.');
+check(resolve_inherited_commission_rate(array(), array('trendyol' => 5), 'trendyol', 8) === 8.0, 'Parent commission override was not ignored.');
 $importer = (new ReflectionClass(MultiSync\Sync\ProductImporter::class))->newInstanceWithoutConstructor();
 $owned_product_method = new ReflectionMethod(MultiSync\Sync\ProductImporter::class, 'find_product');
 $owned_product_method->setAccessible(true);
@@ -233,10 +233,10 @@ $GLOBALS['test_product'] = new CommissionVariationProduct();
 $direct_preview = $direct_preview_method->invoke(null, 1, (object) array('marketplace_key' => 'trendyol'), new StockPreviewFixture(), array(), array(), true, true, false);
 check(count($direct_preview['items']) === 1, 'Price preview did not use the marketplace product list.');
 check($direct_preview['items'][0]['before_price'] === 110.0 && $direct_preview['items'][0]['before_discount_price'] === 90.0, 'Marketplace prices are missing from price preview.');
-check($direct_preview['items'][0]['after_price'] === 142.0 && $direct_preview['items'][0]['after_discount_price'] === 117.0, 'Product commission is missing from Trendyol price preview.');
+check($direct_preview['items'][0]['after_price'] === 120.0 && $direct_preview['items'][0]['after_discount_price'] === 99.0, 'Product commission still affects Trendyol price preview.');
 
 $commission_payload = $trendyol->build_price_inventory_item_from_product(new CommissionVariationProduct(), false, true);
-check($commission_payload['listPrice'] === 142.0 && $commission_payload['salePrice'] === 117.0, 'Parent product commission is missing from Trendyol variation payload.');
+check($commission_payload['listPrice'] === 120.0 && $commission_payload['salePrice'] === 99.0, 'Parent product commission still affects Trendyol variation payload.');
 
 $discount_method = new ReflectionMethod(StockSync::class, 'get_product_discount_price');
 $discount_method->setAccessible(true);
@@ -254,6 +254,9 @@ require_once $updater_file;
 check(class_exists('YahnisElsts\\PluginUpdateChecker\\v5\\PucFactory'), 'Vendored auto-updater is missing.');
 $plugin_source = file_get_contents(dirname(__DIR__) . '/plugin.php');
 check(strpos($plugin_source, "setBranch('main')") !== false, 'Auto-updater must use the main branch.');
+check(strpos($plugin_source, '_multi_sync_commission_rates') === false && strpos($plugin_source, 'Trendyol ürün gönderimi') === false, 'Removed product commission or Trendyol publish fields are still registered.');
+$bulk_edit_source = file_get_contents(dirname(__DIR__) . '/includes/ui/vat-bulk-edit.php');
+check(strpos($bulk_edit_source, 'name="multi_sync_desi"') !== false && strpos($bulk_edit_source, 'name="multi_sync_vat_rate"') !== false, 'Desi and VAT are not both available in bulk edit.');
 $rest_source = file_get_contents(dirname(__DIR__) . '/includes/api/RestApi.php');
 check(substr_count($rest_source, 'multi_sync_mapping_save_failed') === 2, 'Mapping saves must report database write failures.');
 

@@ -193,12 +193,17 @@ class HepsiburadaMarketplace extends BaseMarketplace
             return $stored !== '' ? $stored : $fallback;
         };
         $sku = $this->stock_code($value('sku', $product->get_sku()));
-        $barcode = $value('barcode', $sku);
+        $barcode = is_callable(array($product, 'get_global_unique_id'))
+            ? trim((string) $product->get_global_unique_id())
+            : trim((string) $product->get_meta('_global_unique_id', true));
+        if (isset($overrides['barcode']) && trim((string) $overrides['barcode']) !== '') {
+            $barcode = trim((string) $overrides['barcode']);
+        }
         $group = $this->stock_code($value('variant_group_id', $parent ? $parent->get_sku() : $sku));
         $category = $value('category_id', $category_mapping['category_id'] ?? '');
         $brand = $value('brand', $category_mapping['brand_name'] ?? '');
         $missing = array();
-        foreach (array('sku' => array('SKU / Stok Kodu', $sku), 'barcode' => array('Barkod', $barcode), 'variant_group_id' => array('Varyant Grup Kodu', $group), 'category_id' => array('Hepsiburada Kategori ID', $category), 'brand' => array('Hepsiburada Marka', $brand)) as $key => $field) {
+        foreach (array('sku' => array('SKU / Stok Kodu', $sku), 'barcode' => array('WooCommerce GTIN, UPC, EAN veya ISBN', $barcode), 'variant_group_id' => array('Varyant Grup Kodu', $group), 'category_id' => array('Hepsiburada Kategori ID', $category), 'brand' => array('Hepsiburada Marka', $brand)) as $key => $field) {
             if ($field[1] === '') $missing[] = array('key' => $key, 'label' => $field[0], 'type' => 'text', 'options' => array());
         }
 

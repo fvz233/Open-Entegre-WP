@@ -657,6 +657,10 @@ class TrendyolMarketplace extends BaseMarketplace
         }
 
         $parent = $product->is_type('variation') ? wc_get_product($product->get_parent_id()) : null;
+        $variation_definitions = array_values(array_filter((array) ($category_mapping['attribute_definitions'] ?? array()), static function ($definition) {
+            return is_array($definition) && !empty($definition['id']) && (!empty($definition['slicer']) || !empty($definition['varianter']));
+        }));
+        $supports_variations = $product->is_type('variation') && !empty($variation_definitions);
         $meta = function ($key) use ($product, $parent) {
             $value = trim((string) $product->get_meta('_multi_sync_trendyol_' . $key, true));
             return $value !== '' || !$parent ? $value : trim((string) $parent->get_meta('_multi_sync_trendyol_' . $key, true));
@@ -668,9 +672,12 @@ class TrendyolMarketplace extends BaseMarketplace
         $barcode = $override('barcode', $meta('barcode') ?: $sku);
         $parent_sku = $parent ? trim((string) $parent->get_sku()) : '';
         $product_main_id = $override('product_main_id', $meta('product_main_id') ?: ($parent_sku ?: $sku));
+        if ($product->is_type('variation') && !$supports_variations) {
+            $product_main_id = $sku;
+        }
         $brand_id = (int) $override('brand_id', $category_mapping['brand_id'] ?? $meta('brand_id'));
         $category_id = (int) $override('category_id', $meta('category_id') ?: ($category_mapping['category_id'] ?? 0));
-        $dimensional_weight = (float) $meta('dimensional_weight');
+        $dimensional_weight = (float) $this->get_product_desi($product, $meta('dimensional_weight'));
         $vat_rate = $override('vat_rate', $this->get_product_vat_rate($product));
         $attributes_raw = $meta('attributes');
         $attributes = $attributes_raw === ''
@@ -707,20 +714,18 @@ class TrendyolMarketplace extends BaseMarketplace
             ));
         }
 
-        $selected_variation_attribute = $override('variation_attribute', '');
-        $selected_variation_target = (int) $override('variation_target_attribute_id', '0');
+        $selected_variation_attribute = $supports_variations ? $override('variation_attribute', '') : '';
+        $selected_variation_target = $supports_variations ? (int) $override('variation_target_attribute_id', '0') : 0;
         $variation_value = $this->get_variation_value($product, $parent, $selected_variation_attribute);
-        if ($product->is_type('variation') && $selected_variation_attribute === '') {
+        if ($supports_variations && $selected_variation_attribute === '') {
             $missing[] = array('key' => 'variation_attribute', 'label' => 'WooCommerce kaynak alanı', 'type' => 'select', 'options' => array_map(static function ($name) use ($parent) {
                 return array('id' => $name, 'name' => function_exists('wc_attribute_label') ? wc_attribute_label($name, $parent) : $name);
             }, array_keys((array) $product->get_attributes())));
         }
-        if ($product->is_type('variation') && $selected_variation_target <= 0) {
+        if ($supports_variations && $selected_variation_target <= 0) {
             $missing[] = array('key' => 'variation_target_attribute_id', 'label' => 'Trendyol hedef niteliği', 'type' => 'select', 'options' => array_values(array_map(static function ($definition) {
                 return array('id' => (string) ($definition['id'] ?? ''), 'name' => (string) ($definition['name'] ?? ''));
-            }, array_filter((array) ($category_mapping['attribute_definitions'] ?? array()), static function ($definition) {
-                return is_array($definition) && !empty($definition['id']) && (!empty($definition['slicer']) || !empty($definition['varianter']));
-            }))));
+            }, $variation_definitions)));
         }
         foreach ((array) ($category_mapping['attribute_definitions'] ?? array()) as $definition) {
             if (!is_array($definition) || empty($definition['id'])) {

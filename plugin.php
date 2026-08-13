@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Open Entegre
  * Description: WooCommerce icin birden fazla dis pazar yerine baglanabilen esnek senkronizasyon eklentisi.
- * Version: 1.0.95
+ * Version: 1.0.97
  * Author: Fevzi Demirtaş
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -60,7 +60,7 @@ function multi_sync_redact_debug_value($value, $key = '')
     return $value;
 }
 
-define('MULTI_SYNC_VERSION', '1.0.95');
+define('MULTI_SYNC_VERSION', '1.0.97');
 define('MULTI_SYNC_SCHEMA_VERSION', '20260812-1');
 define('MULTI_SYNC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MULTI_SYNC_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -1171,27 +1171,6 @@ function multi_sync_add_custom_statuses_to_wc($order_statuses)
     return $order_statuses;
 }
 
-/**
- * Product-level marketplace commission overrides.
- */
-function multi_sync_get_marketplace_labels()
-{
-    $labels = array();
-    $manager = new \MultiSync\Marketplaces\MarketplaceManager();
-
-    foreach ($manager->all() as $marketplace) {
-        $labels[$marketplace->get_key()] = $marketplace->get_label();
-    }
-
-    return $labels;
-}
-
-function multi_sync_get_product_commission_rates($product)
-{
-    $rates = $product ? $product->get_meta('_multi_sync_commission_rates', true) : array();
-    return is_array($rates) ? $rates : array();
-}
-
 function multi_sync_get_product_vat_rate($product)
 {
     if (!$product) return '';
@@ -1203,66 +1182,12 @@ function multi_sync_get_product_vat_rate($product)
     return '';
 }
 
-function multi_sync_save_product_commission_rates($product)
+function multi_sync_get_product_desi($product)
 {
-    $rates = array();
-    $submitted = false;
-
-    foreach (multi_sync_get_marketplace_labels() as $key => $label) {
-        $field = 'multi_sync_commission_rate_' . $key;
-        if (!isset($_POST[$field])) {
-            continue;
-        }
-
-        $submitted = true;
-        $value = trim((string) wp_unslash($_POST[$field]));
-        if ($value === '') {
-            continue;
-        }
-
-        $value = wc_format_decimal($value);
-        if (is_numeric($value)) {
-            $rates[$key] = min(100, max(0, (float) $value));
-        }
-    }
-
-    if (!$submitted) {
-        return;
-    }
-
-    if ($rates) {
-        $product->update_meta_data('_multi_sync_commission_rates', $rates);
-    } else {
-        $product->delete_meta_data('_multi_sync_commission_rates');
-    }
+    if (!$product) return '';
+    $desi = trim((string) $product->get_meta('_multi_sync_desi', true));
+    return $desi !== '' ? $desi : trim((string) $product->get_meta('_multi_sync_trendyol_dimensional_weight', true));
 }
-
-add_action('woocommerce_product_options_general_product_data', 'multi_sync_render_product_commission_rates');
-function multi_sync_render_product_commission_rates()
-{
-    global $product_object;
-    $rates = multi_sync_get_product_commission_rates($product_object);
-
-    echo '<div class="options_group"><p class="form-field"><strong>'
-        . esc_html__('Marketplace commission rates', 'multi-sync')
-        . '</strong><br><span class="description">'
-        . esc_html__('Leave blank to use the marketplace default rate.', 'multi-sync')
-        . '</span></p>';
-
-    foreach (multi_sync_get_marketplace_labels() as $key => $label) {
-        woocommerce_wp_text_input(array(
-            'id' => 'multi_sync_commission_rate_' . $key,
-            'label' => $label . ' (%)',
-            'type' => 'number',
-            'value' => array_key_exists($key, $rates) ? $rates[$key] : '',
-            'custom_attributes' => array('min' => '0', 'max' => '100', 'step' => '0.01'),
-        ));
-    }
-
-    echo '</div>';
-}
-
-add_action('woocommerce_admin_process_product_object', 'multi_sync_save_product_commission_rates');
 
 add_action('woocommerce_product_options_general_product_data', 'multi_sync_render_product_vat_rates');
 function multi_sync_render_product_vat_rates()
@@ -1276,121 +1201,89 @@ function multi_sync_render_product_vat_rates()
         'value' => multi_sync_get_product_vat_rate($product_object),
         'options' => array('' => 'Seçin', '0' => '%0', '1' => '%1', '10' => '%10', '20' => '%20'),
     ));
+    woocommerce_wp_text_input(array(
+        'id' => 'multi_sync_desi',
+        'label' => 'Desi',
+        'description' => 'Tüm pazar yerlerinde kullanılır. Boşsa ürün ölçülerinden hesaplanır.',
+        'type' => 'number',
+        'value' => multi_sync_get_product_desi($product_object),
+        'custom_attributes' => array('min' => '0', 'step' => '0.01'),
+    ));
     echo '</div>';
 }
 
 add_action('woocommerce_admin_process_product_object', 'multi_sync_save_product_vat_rates');
 function multi_sync_save_product_vat_rates($product)
 {
-    if (!isset($_POST['multi_sync_vat_rate'])) return;
-    $value = trim((string) wp_unslash($_POST['multi_sync_vat_rate']));
-    if (in_array($value, array('0', '1', '10', '20'), true)) $product->update_meta_data('_multi_sync_vat_rate', $value);
-    else $product->delete_meta_data('_multi_sync_vat_rate');
-    $product->delete_meta_data('_multi_sync_vat_rates');
-    $product->delete_meta_data('_multi_sync_trendyol_vat_rate');
-}
-
-add_action('woocommerce_product_options_general_product_data', 'multi_sync_render_trendyol_product_fields');
-function multi_sync_render_trendyol_product_fields()
-{
-    echo '<div class="options_group"><p class="form-field"><strong>Trendyol ürün gönderimi</strong></p>';
-    foreach (array(
-        'barcode' => array('Trendyol Barkod', 'text'),
-        'product_main_id' => array('Trendyol Model Kodu', 'text'),
-        'dimensional_weight' => array('Desi (opsiyonel)', 'number'),
-    ) as $key => $field) {
-        woocommerce_wp_text_input(array('id' => '_multi_sync_trendyol_' . $key, 'label' => $field[0], 'type' => $field[1]));
+    if (isset($_POST['multi_sync_vat_rate'])) {
+        $value = trim((string) wp_unslash($_POST['multi_sync_vat_rate']));
+        if (in_array($value, array('0', '1', '10', '20'), true)) $product->update_meta_data('_multi_sync_vat_rate', $value);
+        else $product->delete_meta_data('_multi_sync_vat_rate');
+        $product->delete_meta_data('_multi_sync_vat_rates');
+        $product->delete_meta_data('_multi_sync_trendyol_vat_rate');
     }
-    woocommerce_wp_textarea_input(array(
-        'id' => '_multi_sync_trendyol_attributes',
-        'label' => 'Trendyol Nitelikleri (JSON)',
-        'description' => 'Örn: [{"attributeId":338,"attributeValueId":6980}]',
-    ));
-    echo '</div>';
-}
-
-add_action('woocommerce_admin_process_product_object', 'multi_sync_save_trendyol_product_fields');
-function multi_sync_save_trendyol_product_fields($product)
-{
-    foreach (array('barcode', 'product_main_id', 'brand_id', 'category_id', 'dimensional_weight', 'attributes') as $key) {
-        $field = '_multi_sync_trendyol_' . $key;
-        if (!isset($_POST[$field])) continue;
-        $value = trim((string) wp_unslash($_POST[$field]));
-        if ($value === '') {
-            $product->delete_meta_data($field);
-        } else {
-            $product->update_meta_data($field, $key === 'attributes' ? wp_kses_post($value) : sanitize_text_field($value));
-        }
+    if (isset($_POST['multi_sync_desi'])) {
+        $value = wc_format_decimal(wp_unslash($_POST['multi_sync_desi']));
+        if ($value !== '' && is_numeric($value) && (float) $value >= 0) $product->update_meta_data('_multi_sync_desi', $value);
+        else $product->delete_meta_data('_multi_sync_desi');
+        $product->delete_meta_data('_multi_sync_trendyol_dimensional_weight');
     }
 }
-add_action('woocommerce_product_quick_edit_save', 'multi_sync_save_product_commission_rates_quick_edit');
-function multi_sync_save_product_commission_rates_quick_edit($product)
+
+add_action('woocommerce_product_quick_edit_save', 'multi_sync_save_product_fields_quick_edit');
+function multi_sync_save_product_fields_quick_edit($product)
 {
-    multi_sync_save_product_commission_rates($product);
-    if (isset($_POST['multi_sync_vat_rate']) && trim((string) wp_unslash($_POST['multi_sync_vat_rate'])) !== '') {
-        multi_sync_save_product_vat_rates($product);
+    $has_vat = isset($_POST['multi_sync_vat_rate']) && trim((string) wp_unslash($_POST['multi_sync_vat_rate'])) !== '';
+    $has_desi = isset($_POST['multi_sync_desi']) && trim((string) wp_unslash($_POST['multi_sync_desi'])) !== '';
+    if ($has_vat) {
+        $vat = trim((string) wp_unslash($_POST['multi_sync_vat_rate']));
+        if (in_array($vat, array('0', '1', '10', '20'), true)) $product->update_meta_data('_multi_sync_vat_rate', $vat);
+        $product->delete_meta_data('_multi_sync_vat_rates');
     }
-    $product->save_meta_data();
+    if ($has_desi) {
+        $desi = wc_format_decimal(wp_unslash($_POST['multi_sync_desi']));
+        if (is_numeric($desi) && (float) $desi >= 0) $product->update_meta_data('_multi_sync_desi', $desi);
+        $product->delete_meta_data('_multi_sync_trendyol_dimensional_weight');
+    }
+    if ($has_vat || $has_desi) $product->save_meta_data();
 }
 
-add_filter('manage_edit-product_columns', 'multi_sync_add_product_commission_column');
-function multi_sync_add_product_commission_column($columns)
+add_filter('manage_edit-product_columns', 'multi_sync_add_product_fields_columns');
+function multi_sync_add_product_fields_columns($columns)
 {
-    $columns['multi_sync_commissions'] = __('Commissions', 'multi-sync');
+    $columns['multi_sync_desi'] = __('Desi', 'multi-sync');
     $columns['multi_sync_vat'] = __('KDV', 'multi-sync');
     return $columns;
 }
 
-add_action('manage_product_posts_custom_column', 'multi_sync_render_product_commission_column', 10, 2);
-function multi_sync_render_product_commission_column($column, $post_id)
+add_action('manage_product_posts_custom_column', 'multi_sync_render_product_fields_columns', 10, 2);
+function multi_sync_render_product_fields_columns($column, $post_id)
 {
-    if ($column !== 'multi_sync_commissions') {
-        return;
+    $product = wc_get_product($post_id);
+    if ($column === 'multi_sync_desi') {
+        $desi = multi_sync_get_product_desi($product);
+        echo $desi !== '' ? esc_html($desi) : '&mdash;';
+        echo '<span class="multi-sync-desi-data" data-desi="' . esc_attr($desi) . '" hidden></span>';
+    } elseif ($column === 'multi_sync_vat') {
+        $rate = multi_sync_get_product_vat_rate($product);
+        echo in_array($rate, array('0', '1', '10', '20'), true) ? esc_html('%' . $rate) : '&mdash;';
+        echo '<span class="multi-sync-vat-data" data-vat="' . esc_attr($rate) . '" hidden></span>';
     }
-
-    $rates = multi_sync_get_product_commission_rates(wc_get_product($post_id));
-    $display = array();
-    foreach (multi_sync_get_marketplace_labels() as $key => $label) {
-        if (array_key_exists($key, $rates)) {
-            $display[] = $label . ': ' . $rates[$key] . '%';
-        }
-    }
-
-    echo $display ? esc_html(implode(', ', $display)) : '&mdash;';
-    echo '<span class="multi-sync-commission-data" data-rates="'
-        . esc_attr(wp_json_encode($rates)) . '" hidden></span>';
 }
 
-add_action('manage_product_posts_custom_column', 'multi_sync_render_product_vat_column', 10, 2);
-function multi_sync_render_product_vat_column($column, $post_id)
+add_action('quick_edit_custom_box', 'multi_sync_render_product_fields_quick_edit', 10, 2);
+function multi_sync_render_product_fields_quick_edit($column, $post_type)
 {
-    if ($column !== 'multi_sync_vat') {
-        return;
-    }
-    $rate = multi_sync_get_product_vat_rate(wc_get_product($post_id));
-    $label = in_array($rate, array('0', '1', '10', '20'), true) ? '%' . $rate : '&mdash;';
-    echo esc_html($label);
-    echo '<span class="multi-sync-vat-data" data-vat="' . esc_attr((string) $rate) . '" hidden></span>';
-}
-
-add_action('quick_edit_custom_box', 'multi_sync_render_product_commission_quick_edit', 10, 2);
-function multi_sync_render_product_commission_quick_edit($column, $post_type)
-{
-    if ($column !== 'multi_sync_commissions' || $post_type !== 'product') {
+    if ($column !== 'multi_sync_desi' || $post_type !== 'product') {
         return;
     }
     ?>
     <fieldset class="inline-edit-col-right">
         <div class="inline-edit-col">
-            <span class="title"><?php esc_html_e('Marketplace commission rates', 'multi-sync'); ?></span>
-            <?php foreach (multi_sync_get_marketplace_labels() as $key => $label) : ?>
-                <label>
-                    <span class="title"><?php echo esc_html($label); ?> (%)</span>
-                    <span class="input-text-wrap">
-                        <input type="number" name="multi_sync_commission_rate_<?php echo esc_attr($key); ?>" min="0" max="100" step="0.01">
-                    </span>
-                </label>
-            <?php endforeach; ?>
+            <label>
+                <span class="title">Desi</span>
+                <span class="input-text-wrap"><input type="number" name="multi_sync_desi" min="0" step="0.01"></span>
+            </label>
             <label>
                 <span class="title">KDV oranı</span>
                 <span class="input-text-wrap">
@@ -1408,8 +1301,8 @@ function multi_sync_render_product_commission_quick_edit($column, $post_type)
     <?php
 }
 
-add_action('admin_footer-edit.php', 'multi_sync_product_commission_quick_edit_script');
-function multi_sync_product_commission_quick_edit_script()
+add_action('admin_footer-edit.php', 'multi_sync_product_fields_quick_edit_script');
+function multi_sync_product_fields_quick_edit_script()
 {
     $screen = get_current_screen();
     if (!$screen || $screen->post_type !== 'product') {
@@ -1422,20 +1315,15 @@ function multi_sync_product_commission_quick_edit_script()
         inlineEditPost.edit = function (id) {
             edit.apply(this, arguments);
             const postId = typeof id === 'object' ? parseInt(this.getId(id), 10) : parseInt(id, 10);
-            const rates = JSON.parse($('#post-' + postId + ' .multi-sync-commission-data').attr('data-rates') || '{}');
             const row = $('#edit-' + postId);
-
-            <?php foreach (multi_sync_get_marketplace_labels() as $key => $label) : ?>
-            row.find('[name="multi_sync_commission_rate_<?php echo esc_js($key); ?>"]').val(
-                Object.prototype.hasOwnProperty.call(rates, '<?php echo esc_js($key); ?>') ? rates['<?php echo esc_js($key); ?>'] : ''
-            );
-            <?php endforeach; ?>
+            const desi = $('#post-' + postId + ' .multi-sync-desi-data').attr('data-desi') || '';
             const vat = $('#post-' + postId + ' .multi-sync-vat-data').attr('data-vat') || '';
+            row.find('[name="multi_sync_desi"]').val(desi);
             row.find('[name="multi_sync_vat_rate"]').val(vat);
         };
     });
     </script>
     <?php
 }
-// KDV bulk edit
+// KDV and Desi bulk edit
 require_once MULTI_SYNC_PLUGIN_DIR . 'includes/ui/vat-bulk-edit.php';

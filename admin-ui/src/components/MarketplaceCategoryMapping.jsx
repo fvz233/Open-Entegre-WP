@@ -249,7 +249,7 @@ function MarketplaceCategoryMapping({ supplier, onSupplierUpdate }) {
                 {trendyolCategory && (
                     <label>
                         Komisyon Oranı (%)
-                        <input type="number" min="0" max="99.99" step="0.01" value={commissionRate} placeholder="Boşsa API veya ürün oranı kullanılır" onChange={e => setCommissionRate(e.target.value)} />
+                        <input type="number" min="0" max="99.99" step="0.01" value={commissionRate} placeholder="Boşsa API komisyonu kullanılır" onChange={e => setCommissionRate(e.target.value)} />
                     </label>
                 )}
                 {trendyolCategory && <button type="button" className="btn" onClick={save} disabled={loading || !wooCategoryId}>Eşlemeyi Kaydet</button>}

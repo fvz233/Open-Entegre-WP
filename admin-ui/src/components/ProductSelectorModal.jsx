@@ -475,19 +475,23 @@ function ProductSelectorModal({
                                                 </summary>
                                                 <div style={{ padding: '0 12px 12px' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 10px', background: '#eef2f6', borderRadius: '5px', marginBottom: '8px' }}>
-                                                        <label style={{ fontSize: '12px', fontWeight: 600 }}>{isProductPublishPreview ? 'WooCommerce kaynak alanı' : 'Varyasyon özelliği'}</label>
-                                                        <select
-                                                            value={variationChoices[parentKey] || ''}
-                                                            onChange={e => setVariationField(parentKey, children, e.target.value)}
-                                                        >
-                                                            {isProductPublishPreview && <option value="">Seçin</option>}
-                                                            {(first.variation_attribute_options || []).map(option => <option key={option} value={option}>{(first.variation_attribute_labels || {})[option] || option}</option>)}
-                                                        </select>
-                                                        {isProductPublishPreview && <>
+                                                        {isProductPublishPreview && targetOptions.length === 0 ? (
+                                                            <small>Trendyol bu kategoride varyasyon niteliği sunmuyor; her varyasyon ayrı ürün gönderilecek.</small>
+                                                        ) : <>
+                                                            <label style={{ fontSize: '12px', fontWeight: 600 }}>{isProductPublishPreview ? 'WooCommerce kaynak alanı' : 'Varyasyon özelliği'}</label>
+                                                            <select
+                                                                value={variationChoices[parentKey] || ''}
+                                                                onChange={e => setVariationField(parentKey, children, e.target.value)}
+                                                            >
+                                                                {isProductPublishPreview && <option value="">Seçin</option>}
+                                                                {(first.variation_attribute_options || []).map(option => <option key={option} value={option}>{(first.variation_attribute_labels || {})[option] || option}</option>)}
+                                                            </select>
+                                                        </>}
+                                                        {isProductPublishPreview && targetOptions.length > 0 && <>
                                                             <span style={{ color: '#667085' }}>→</span>
                                                             <label style={{ fontSize: '12px', fontWeight: 600 }}>{(supplier?.name || 'Pazar yeri')} hedef niteliği</label>
-                                                            <select value={variationTargetChoices[parentKey] || ''} onChange={e => setVariationTarget(parentKey, children, e.target.value)} disabled={targetOptions.length === 0}>
-                                                                <option value="">{targetOptions.length ? 'Karşılık gelen niteliği seçin' : 'API varyasyon niteliği döndürmedi'}</option>
+                                                            <select value={variationTargetChoices[parentKey] || ''} onChange={e => setVariationTarget(parentKey, children, e.target.value)}>
+                                                                <option value="">Karşılık gelen niteliği seçin</option>
                                                                 {targetOptions.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
                                                             </select>
                                                         </>}
