@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import { getCommonVariationOptions } from '../variationFieldMatches';
 
 function ProductSelectorModal({
     supplier,
@@ -28,6 +29,9 @@ function ProductSelectorModal({
     const [productTab, setProductTab] = useState('simple');
     const [variationChoices, setVariationChoices] = useState({});
     const [variationTargetChoices, setVariationTargetChoices] = useState({});
+    const [commonVariationSource, setCommonVariationSource] = useState('');
+    const [commonVariationTarget, setCommonVariationTarget] = useState('');
+    const [commonVariationApplied, setCommonVariationApplied] = useState(0);
     const [expandedProducts, setExpandedProducts] = useState(new Set());
 
     useEffect(() => {
@@ -67,6 +71,9 @@ function ProductSelectorModal({
                 setPublishValues({});
                 setVariationChoices({});
                 setVariationTargetChoices({});
+                setCommonVariationSource('');
+                setCommonVariationTarget('');
+                setCommonVariationApplied(0);
                 setExpandedProducts(new Set());
                 setProductTab('simple');
             } else {
@@ -202,10 +209,19 @@ function ProductSelectorModal({
 
     const simpleItems = filteredItems.filter(item => item.row_type !== 'variation');
     const variableItems = filteredItems.filter(item => item.row_type === 'variation');
-    const variableGroups = Object.entries(variableItems.reduce((groups, item) => {
+    const groupVariations = variationItems => Object.entries(variationItems.reduce((groups, item) => {
         (groups[item.variation_parent_key] ||= []).push(item);
         return groups;
     }, {}));
+    const variableGroups = groupVariations(variableItems);
+    const allVariableGroups = groupVariations(items.filter(item => item.row_type === 'variation'));
+    const commonVariationOptions = getCommonVariationOptions(allVariableGroups);
+    const selectedCommonSource = commonVariationOptions.sources.find(option => option.key === commonVariationSource);
+    const selectedCommonTarget = commonVariationOptions.targets.find(option => option.key === commonVariationTarget);
+    const commonVariationGroups = selectedCommonSource && selectedCommonTarget ? selectedCommonSource.groups.flatMap(source => {
+        const target = selectedCommonTarget.groups.find(group => group.parentKey === source.parentKey);
+        return target ? [{ ...source, targetId: target.value }] : [];
+    }) : [];
     const variableGroupCount = variableGroups.length;
     const visibleItems = (isProductImportPreview || isProductPublishPreview)
         ? (productTab === 'variable' ? variableItems : simpleItems)
@@ -459,6 +475,39 @@ function ProductSelectorModal({
                                     <div style={{ marginBottom: '8px', fontWeight: 600 }}>
                                         Varyasyonlu Urunler ({variableGroupCount} urun / {visibleItems.length} varyasyon)
                                     </div>
+                                    {isProductPublishPreview && commonVariationOptions.sources.length > 0 && commonVariationOptions.targets.length > 0 && (
+                                        <div style={{ marginBottom: '10px', padding: '10px', border: '1px solid #c5d9ed', borderRadius: '8px', background: '#eef6ff' }}>
+                                            <strong style={{ display: 'block', marginBottom: '7px' }}>Tüm listedeki ortak varyasyon alanları</strong>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                                <label style={{ fontSize: '12px', fontWeight: 600 }}>WooCommerce kaynak alanı</label>
+                                                <select value={commonVariationSource} onChange={e => { setCommonVariationSource(e.target.value); setCommonVariationApplied(0); }}>
+                                                    <option value="">Ortak alan seçin</option>
+                                                    {commonVariationOptions.sources.map(option => <option key={option.key} value={option.key}>{option.label} ({option.groups.length} ürün)</option>)}
+                                                </select>
+                                                <span style={{ color: '#667085' }}>→</span>
+                                                <label style={{ fontSize: '12px', fontWeight: 600 }}>{(supplier?.name || 'Pazar yeri')} hedef niteliği</label>
+                                                <select value={commonVariationTarget} onChange={e => { setCommonVariationTarget(e.target.value); setCommonVariationApplied(0); }}>
+                                                    <option value="">Ortak nitelik seçin</option>
+                                                    {commonVariationOptions.targets.map(option => <option key={option.key} value={option.key}>{option.label} ({option.groups.length} ürün)</option>)}
+                                                </select>
+                                                <button
+                                                    type="button"
+                                                    disabled={commonVariationGroups.length < 2}
+                                                    aria-live="polite"
+                                                    onClick={() => {
+                                                        commonVariationGroups.forEach(group => {
+                                                            setVariationField(group.parentKey, group.children, group.value);
+                                                            setVariationTarget(group.parentKey, group.children, group.targetId);
+                                                        });
+                                                        setCommonVariationApplied(commonVariationGroups.length);
+                                                    }}
+                                                    style={commonVariationApplied ? { borderColor: '#78b68a', background: '#e9f7ed', color: '#236b37' } : undefined}
+                                                >
+                                                    {commonVariationApplied ? `✓ ${commonVariationApplied} ürüne uygulandı` : (commonVariationGroups.length > 1 ? `${commonVariationGroups.length} ürüne uygula` : 'Uygula')}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                     {variableGroups.length === 0 ? (
                                         <div style={{ padding: '20px', textAlign: 'center', border: '1px solid #e5e7eb', borderRadius: '6px' }}>Urun bulunamadi.</div>
                                     ) : variableGroups.map(([parentKey, children]) => {

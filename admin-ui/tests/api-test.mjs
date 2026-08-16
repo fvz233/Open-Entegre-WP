@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { getCommonVariationOptions } from '../src/variationFieldMatches.js';
 
 global.window = {
     multiSyncSettings: {
@@ -60,6 +61,7 @@ await assert.rejects(
 const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
 const settingsSource = readFileSync(new URL('../src/components/Tabs/SyncSettings.jsx', import.meta.url), 'utf8');
 const categoryMappingSource = readFileSync(new URL('../src/components/MarketplaceCategoryMapping.jsx', import.meta.url), 'utf8');
+const productSelectorSource = readFileSync(new URL('../src/components/ProductSelectorModal.jsx', import.meta.url), 'utf8');
 assert.match(appSource, /Eşleştirmeler/);
 assert.match(appSource, /questionMarketplaces = new Set\(\['trendyol'\]\)/);
 assert.doesNotMatch(settingsSource, /TrendyolCategoryMapping/);
@@ -69,5 +71,14 @@ assert.match(categoryMappingSource, /attribute\.slicer \|\| attribute\.varianter
 assert.match(categoryMappingSource, /'isteğe bağlı'/);
 assert.match(categoryMappingSource, /supplier\.marketplace_key === 'n11'.*WooCommerce marka adından alınır\./s);
 assert.match(categoryMappingSource, /supplier\.marketplace_key !== 'n11' && <div style=\{sectionStyle\}>/);
+assert.match(productSelectorSource, /✓ \$\{commonVariationApplied\} ürüne uygulandı/);
+
+const commonVariationOptions = getCommonVariationOptions([
+        ['one', [{ variation_attribute_options: ['option'], variation_attribute_labels: { option: 'Seçenek' }, variation_target_options: [{ id: 2, name: 'Renk' }] }]],
+        ['two', [{ variation_attribute_options: ['pa_option'], variation_attribute_labels: { pa_option: 'SEÇENEK' }, variation_target_options: [{ id: 9, name: 'RENK' }] }]],
+        ['three', [{ variation_attribute_options: ['size'], variation_attribute_labels: { size: 'Beden' }, variation_target_options: [{ id: 5, name: 'Beden' }] }]],
+]);
+assert.deepEqual(commonVariationOptions.sources.map(option => [option.label, option.groups.map(group => group.parentKey)]), [['Seçenek', ['one', 'two']]]);
+assert.deepEqual(commonVariationOptions.targets.map(option => [option.label, option.groups.map(group => [group.parentKey, group.value])]), [['Renk', [['one', '2'], ['two', '9']]]]);
 
 console.log('api-test: ok');
