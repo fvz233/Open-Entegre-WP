@@ -28,6 +28,12 @@ class RestApi
     {
         $namespace = 'multi-sync/v1';
 
+        register_rest_route($namespace, '/settings/backup/suppliers', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_configuration_suppliers'),
+            'permission_callback' => array($this, 'check_permission'),
+        ));
+
         register_rest_route($namespace, '/settings/backup', array(
             array('methods' => 'GET', 'callback' => array($this, 'export_configuration'), 'permission_callback' => array($this, 'check_permission')),
             array('methods' => 'POST', 'callback' => array($this, 'import_configuration'), 'permission_callback' => array($this, 'check_permission')),
@@ -248,9 +254,22 @@ class RestApi
         return current_user_can('manage_options');
     }
 
-    public function export_configuration()
+    public function get_configuration_suppliers()
     {
-        $result = (new \MultiSync\Models\ConfigurationBackup())->export();
+        $result = (new \MultiSync\Models\ConfigurationBackup())->list_suppliers();
+        if (is_wp_error($result)) return $result;
+        $response = rest_ensure_response($result);
+        $response->header('Cache-Control', 'no-store, private');
+        return $response;
+    }
+
+    public function export_configuration($request)
+    {
+        $selection = $request->get_param('supplier_ids');
+        if ($selection !== null && (!is_string($selection) || !preg_match('/^[1-9][0-9]*(,[1-9][0-9]*)*$/D', $selection))) {
+            return new \WP_Error('multi_sync_backup_selection', 'Dışa aktarılacak pazar yeri kayıtlarını seçin.', array('status' => 400));
+        }
+        $result = (new \MultiSync\Models\ConfigurationBackup())->export($selection === null ? null : array_map('intval', explode(',', $selection)));
         if (is_wp_error($result)) return $result;
         $response = rest_ensure_response($result);
         $response->header('Cache-Control', 'no-store, private');

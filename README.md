@@ -61,7 +61,7 @@ Pazar yerleri anahtarlarına, kategori ve markalar taksonomi/slug değerlerine g
 
 Ürünler, siparişler, işlem geçmişi ve ürün custom metaları bu yedeğe dahil değildir. KDV oranı `_multi_sync_vat_rate` ürün metasında saklanır ve ürün verileriyle taşınmalıdır.
 
-Dışa aktarma yalnızca panelde kullanılan entegrasyon kayıtlarını içerir; eski özel pazar yeri kayıtları veritabanında korunur. Eski JSON dosyalarındaki desteklenmeyen kayıtlar içe aktarımda atlanır ve sayısı sonuçta gösterilir. Aynı desteklenen entegrasyon için birden fazla kayıt içeren eski yedeklerde, hangi hesabın kullanılacağını tahmin etmek yerine güncel sürümle yeniden dışa aktarma istenir.
+Dışa aktarma listesinde panelde kullanılan hesaplar başlangıçta seçilidir; diğer desteklenen kayıtları da işaretleyebilirsiniz. İçe aktarmada JSON içindeki kayıtlar listelenir ve her entegrasyon için tek bir kaynak kayıt seçilir. Aynı entegrasyonun birden fazla kaydı varsa otomatik seçim yapılmaz; başka bir kaydı seçmek önceki seçimi kaldırır. Mevcut JSON dosyasını yeniden oluşturmanız gerekmez. Kayıt adı, kaynak kayıt numarası, satıcı kimliği, API bilgisi durumu ve eşleştirme sayısı seçimde gösterilir; gizli anahtarlar gösterilmez. Seçilen kaynak, hedef sitede panelin kullandığı hesabı günceller. Genel ayarlar da uygulanır. Desteklenmeyen eski/özel kayıtlar listede görünür ancak seçilemez; veritabanında korunur.
 
 ## Sürüm geçmişi
 

@@ -101,6 +101,16 @@ namespace {
     check(!isset($backup['suppliers'][0]['supplier']['id']) && !isset($backup['suppliers'][0]['settings']['supplier_id']), 'Source database IDs must not be exported.');
     check(!isset($backup['options']['unrelated_option']), 'Unrelated options must not be exported.');
     check($backup['suppliers'][0]['mappings']['categories'][0]['slug'] === 'elbise', 'Categories must use portable slugs.');
+    $rows = $service->list_suppliers();
+    check(count($rows) === 3 && $rows[0]['selected'] && !$rows[1]['supported'] && !$rows[2]['selected'], 'Selection list must show current, unsupported and duplicate records.');
+    check(!isset($rows[0]['api_key']) && !isset($rows[0]['api_secret']) && $rows[0]['has_credentials'], 'Selection metadata must not expose API secrets.');
+    $options['multi_sync_category_mappings_3'] = array(10 => array('category_id' => 'selected-duplicate-category'));
+    $wpdb->settings[3] = array('supplier_id' => 3, 'sync_stock' => '0', 'schedule' => 'daily');
+    $duplicate_export = $service->export(array(1, 3));
+    check(count($duplicate_export['suppliers']) === 2 && $duplicate_export['suppliers'][1]['source_id'] === 3, 'Explicit export selection must include the chosen duplicate account.');
+    $single_export = $service->export(array(3));
+    check(count($single_export['suppliers']) === 1 && $single_export['suppliers'][0]['supplier']['api_key'] === 'unused-duplicate', 'Unselected current account must not leak into the selected export.');
+    foreach (array(array(), array(999), array(2), array('3'), array(array(3))) as $invalid_selection) check(is_wp_error($service->export($invalid_selection)), 'Invalid or unsupported export selections must be rejected.');
 
     // A different site's IDs, existing unrelated mapping, and old credentials.
     $wpdb->suppliers = array(42 => array('id' => 42, 'name' => 'Old', 'marketplace_key' => 'hepsiburada', 'api_key' => 'old'));
@@ -120,6 +130,11 @@ namespace {
     check($wpdb->settings[42]['schedule'] === 'hourly' && $wpdb->settings[42]['sync_price'] === 0, 'Settings must use existing normalization.');
     check($options['unrelated_option'] === 'keep', 'Unrelated options must remain untouched.');
     check(!is_wp_error($service->import($backup)) && count($wpdb->suppliers) === 1, 'Repeated imports must not duplicate suppliers.');
+    $chosen = $duplicate_export;
+    $chosen['suppliers'] = array($duplicate_export['suppliers'][1]);
+    check(!is_wp_error($service->import($chosen)), 'Choosing one duplicate entry must import without regenerating the backup.');
+    check($wpdb->suppliers[42]['api_key'] === 'unused-duplicate' && $wpdb->settings[42]['schedule'] === 'daily' && $options['multi_sync_category_mappings_42'][110]['category_id'] === 'selected-duplicate-category', 'Only the chosen credentials, sync settings and mappings must be restored to the local account.');
+    check(!is_wp_error($service->import($backup)), 'Original backup must remain compatible.');
 
     foreach (array('', null, 'production', 'live', 'test', 'missing') as $environment) {
         $legacy_environment = $backup;
@@ -196,6 +211,7 @@ namespace {
 
     $rest = new \MultiSync\Api\RestApi();
     $rest->register_routes();
+    $admin = false; check(!call_user_func($routes['/settings/backup/suppliers']['permission_callback']), 'Selection metadata must deny non-admins.');
     foreach ($routes['/settings/backup'] as $route) {
         $admin = false; check(!call_user_func($route['permission_callback']), 'Backup routes must deny non-admins.');
         $admin = true; check(call_user_func($route['permission_callback']), 'Backup routes must allow admins.');
@@ -204,5 +220,13 @@ namespace {
         public function get_body() { return str_repeat('x', 10 * 1024 * 1024 + 1); }
     };
     check(is_wp_error($rest->import_configuration($request)), 'Oversized uploads must be rejected before parsing.');
+    foreach (array('', '1,', '0', '-1', '1 OR 1=1', array(1)) as $selection) {
+        $request = new class($selection) {
+            private $selection;
+            public function __construct($selection) { $this->selection = $selection; }
+            public function get_param($key) { return $this->selection; }
+        };
+        check(is_wp_error($rest->export_configuration($request)), 'Malformed REST selections must be rejected.');
+    }
     echo "configuration-backup-test: ok\n";
 }

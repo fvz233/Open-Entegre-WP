@@ -18,17 +18,46 @@ class ConfigurationBackup
     );
     private const OPTIONS = array('multi_sync_queue_settings', 'multi_sync_custom_statuses');
 
-    public function export()
+    public function list_suppliers()
+    {
+        $suppliers = (new Supplier())->get_all();
+        if (!is_array($suppliers)) return new \WP_Error('multi_sync_backup_read_failed', 'Pazar yeri ayarları okunamadı.', array('status' => 500));
+        $rows = array();
+        foreach ($suppliers as $supplier) {
+            $supported = in_array($supplier->marketplace_key, self::MARKETPLACES, true);
+            $current = $supported ? (new Supplier())->get_by_marketplace_key($supplier->marketplace_key) : null;
+            $row = array_intersect_key((array) $supplier, array_flip(array('id', 'name', 'marketplace_key', 'seller_id', 'hepsiburada_test_seller_id', 'hepsiburada_environment', 'active')));
+            $row['supported'] = $supported;
+            $row['selected'] = $current && (int) $current->id === (int) $supplier->id;
+            $row['has_credentials'] = !empty($supplier->api_key) || !empty($supplier->api_secret) || !empty($supplier->hepsiburada_test_api_key) || !empty($supplier->amazon_refresh_token) || !empty($supplier->ptt_rest_api_key) || !empty($supplier->ptt_access_token);
+            $row['mapping_count'] = 0;
+            foreach (self::MAPPINGS as $pattern) $row['mapping_count'] += count((array) get_option(sprintf($pattern, $supplier->id), array()));
+            $rows[] = $row;
+        }
+        return $rows;
+    }
+
+    public function export($supplier_ids = null)
     {
         $backup = array('format' => 'open-entegre-settings', 'version' => 1, 'exported_at' => gmdate('c'), 'suppliers' => array(), 'options' => array());
         $suppliers = (new Supplier())->get_all();
         if (!is_array($suppliers)) return new \WP_Error('multi_sync_backup_read_failed', 'Pazar yeri ayarları okunamadı.', array('status' => 500));
+        if ($supplier_ids !== null) {
+            $available_ids = array();
+            foreach ($suppliers as $supplier) if (in_array($supplier->marketplace_key, self::MARKETPLACES, true)) $available_ids[] = (int) $supplier->id;
+            if (!is_array($supplier_ids) || !$supplier_ids || array_filter($supplier_ids, function ($id) { return !is_int($id) || $id <= 0; }) || array_diff($supplier_ids, $available_ids)) return new \WP_Error('multi_sync_backup_selection', 'Dışa aktarılacak geçerli pazar yeri kayıtlarını seçin.', array('status' => 400));
+        }
         foreach ($suppliers as $supplier) {
             if (!in_array($supplier->marketplace_key, self::MARKETPLACES, true)) continue;
-            // Match the account selected by the admin panel; leave legacy rows in the database.
-            $current = (new Supplier())->get_by_marketplace_key($supplier->marketplace_key);
-            if (!$current || (int) $current->id !== (int) $supplier->id) continue;
+            if ($supplier_ids !== null) {
+                if (!in_array((int) $supplier->id, $supplier_ids, true)) continue;
+            } else {
+                // Keep the default export compatible with the account selected by the admin panel.
+                $current = (new Supplier())->get_by_marketplace_key($supplier->marketplace_key);
+                if (!$current || (int) $current->id !== (int) $supplier->id) continue;
+            }
             $entry = array(
+                'source_id' => (int) $supplier->id,
                 'supplier' => array_intersect_key((array) $supplier, array_flip(self::SUPPLIER_FIELDS)),
                 'settings' => array_intersect_key((array) (new SyncSettings())->get($supplier->id), array_flip(self::SETTINGS_FIELDS)),
                 'mappings' => array(),
@@ -78,7 +107,7 @@ class ConfigurationBackup
                     $skipped++;
                     continue;
                 }
-                $this->require_valid(!isset($seen[$marketplace]), 'Yedekte aynı entegrasyon için birden fazla kayıt var: ' . $marketplace . '. Güncel sürümle yeniden dışa aktarın.');
+                $this->require_valid(!isset($seen[$marketplace]), 'Aynı entegrasyon için yalnızca bir kayıt seçin: ' . $marketplace . '.');
                 $this->require_valid(!empty($supplier['name']), 'Pazar yeri adı eksik.');
                 $seen[$marketplace] = true;
                 // Match Supplier and the adapter: only the exact value "test" selects the test environment.

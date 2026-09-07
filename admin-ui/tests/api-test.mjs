@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { getCommonVariationOptions } from '../src/variationFieldMatches.js';
+import { getImportChoices, toggleImportChoice, selectConfiguration } from '../src/configurationSelection.js';
 
 global.window = {
     multiSyncSettings: {
@@ -25,11 +26,35 @@ assert.equal(request.options.headers['X-WP-Nonce'], 'test-nonce');
 await api.exportConfiguration();
 assert.equal(request.url, 'https://example.test/wp-json/multi-sync/v1/settings/backup');
 assert.equal(request.options.method, 'GET');
+await api.exportConfiguration([1, 3]);
+assert.equal(request.url, 'https://example.test/wp-json/multi-sync/v1/settings/backup?supplier_ids=1%2C3');
+await api.getConfigurationSuppliers();
+assert.match(request.url, /\/settings\/backup\/suppliers\?_=/);
+assert.equal(request.options.headers['X-WP-Nonce'], 'test-nonce');
 const settingsBackup = { format: 'open-entegre-settings', version: 1, suppliers: [], options: {} };
 await api.importConfiguration(settingsBackup);
 assert.equal(request.options.method, 'POST');
 assert.equal(request.options.headers['X-WP-Nonce'], 'test-nonce');
 assert.deepEqual(JSON.parse(request.options.body), settingsBackup);
+
+const duplicateBackup = { ...settingsBackup, suppliers: [
+    { supplier: { name: 'Eski Trendyol', marketplace_key: 'trendyol', api_key: 'old' }, mappings: {} },
+    { supplier: { name: 'Güncel Trendyol', marketplace_key: 'trendyol', api_key: 'chosen' }, mappings: { categories: [{}] } },
+    { supplier: { name: 'n11', marketplace_key: 'n11' }, mappings: {} },
+    { supplier: { name: 'Legacy', marketplace_key: 'custom' }, mappings: {} },
+] };
+const choices = getImportChoices(duplicateBackup.suppliers);
+assert.deepEqual(choices.filter(row => row.selected).map(row => row.id), [2]);
+assert.equal(choices[1].mapping_count, 1);
+assert.equal(choices[1].has_credentials, true);
+let selected = toggleImportChoice([2], 0, choices);
+selected = toggleImportChoice(selected, 1, choices);
+assert.deepEqual(selected, [2, 1]);
+assert.deepEqual(toggleImportChoice(selected, 3, choices), selected);
+assert.deepEqual(selectConfiguration(duplicateBackup, selected).suppliers, [duplicateBackup.suppliers[1], duplicateBackup.suppliers[2]]);
+assert.deepEqual(toggleImportChoice(selected, 1, choices), [2]);
+assert.deepEqual(selectConfiguration(duplicateBackup, []).suppliers, []);
+assert.equal(duplicateBackup.suppliers.length, 4);
 
 await api.getMarketplaceCategoryMappings(7);
 assert.match(request.url, /^https:\/\/example\.test\/wp-json\/multi-sync\/v1\/marketplaces\/category-mappings\/7\?_\=\d+$/);

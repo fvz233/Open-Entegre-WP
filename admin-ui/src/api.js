@@ -50,7 +50,8 @@ const api = {
 };
 
 export default {
-    exportConfiguration: () => api.get('/settings/backup'),
+    getConfigurationSuppliers: () => api.get('/settings/backup/suppliers', { params: { _: Date.now() } }),
+    exportConfiguration: (supplierIds) => api.get('/settings/backup', supplierIds === undefined ? undefined : { params: { supplier_ids: supplierIds.join(',') } }),
     importConfiguration: (data) => api.post('/settings/backup', data),
     getSuppliers: () => api.get('/suppliers', { params: { _: Date.now() } }),
     updateSupplier: (id, data) => api.post(`/suppliers/${id}`, data),
