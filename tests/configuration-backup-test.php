@@ -92,8 +92,12 @@ namespace {
     $options['multi_sync_queue_settings'] = array('suspicious_price_drop_percent' => 20);
     $options['multi_sync_custom_statuses'] = array(array('slug' => 'wc-delivered', 'label' => 'Teslim edildi'));
     $options['unrelated_option'] = 'keep';
+    $wpdb->suppliers[2] = array('id' => 2, 'name' => 'Old custom shop', 'marketplace_key' => 'old_custom', 'api_key' => 'legacy-key');
+    $wpdb->suppliers[3] = array_merge($wpdb->suppliers[1], array('id' => 3, 'api_key' => 'unused-duplicate'));
     $service = new \MultiSync\Models\ConfigurationBackup();
     $backup = json_decode(json_encode($service->export()), true);
+    check(count($backup['suppliers']) === 1 && $backup['suppliers'][0]['supplier']['api_key'] === 'key', 'Export must match the panel account and omit legacy/custom rows.');
+    check(isset($wpdb->suppliers[2], $wpdb->suppliers[3]), 'Export must leave legacy database rows untouched.');
     check(!isset($backup['suppliers'][0]['supplier']['id']) && !isset($backup['suppliers'][0]['settings']['supplier_id']), 'Source database IDs must not be exported.');
     check(!isset($backup['options']['unrelated_option']), 'Unrelated options must not be exported.');
     check($backup['suppliers'][0]['mappings']['categories'][0]['slug'] === 'elbise', 'Categories must use portable slugs.');
@@ -102,6 +106,7 @@ namespace {
     $wpdb->suppliers = array(42 => array('id' => 42, 'name' => 'Old', 'marketplace_key' => 'hepsiburada', 'api_key' => 'old'));
     $wpdb->settings = array();
     $terms['product_cat'] = array(110 => (object) array('term_id' => 110, 'slug' => 'elbise'));
+    $terms['product_cat'][999] = (object) array('term_id' => 999, 'slug' => 'existing-category');
     $terms['product_brand'] = array(120 => (object) array('term_id' => 120, 'slug' => 'marka'));
     $options = array('multi_sync_category_mappings_42' => array(999 => array('category_id' => 'keep')), 'unrelated_option' => 'keep');
     $result = $service->import($backup);
@@ -149,6 +154,35 @@ namespace {
     $legacy = $backup;
     unset($legacy['suppliers'][0]['mappings']['categories']);
     check(!is_wp_error($service->import($legacy)) && $options['multi_sync_category_mappings_42'][110]['category_id'] === 'cat-legacy', 'Legacy-only backup must update the effective category mapping.');
+
+    // Old exports contained all rows: seven integrations plus five custom marketplaces.
+    $mixed = $backup;
+    $mixed['suppliers'] = array();
+    foreach (array('trendyol', 'n11', 'pazarama', 'ciceksepeti', 'amazon', 'pttavm', 'hepsiburada') as $marketplace) {
+        $entry = $backup['suppliers'][0];
+        $entry['supplier']['marketplace_key'] = $marketplace;
+        $entry['supplier']['api_key'] = 'current-' . $marketplace;
+        $mixed['suppliers'][] = $entry;
+    }
+    for ($index = 0; $index < 5; $index++) {
+        $entry = $backup['suppliers'][0];
+        $entry['supplier']['marketplace_key'] = 'old_custom_' . $index;
+        $entry['mappings']['categories'][0]['slug'] = 'deleted-legacy-category';
+        $mixed['suppliers'][] = $entry;
+    }
+    $wpdb->suppliers[90] = array('id' => 90, 'name' => 'Legacy', 'marketplace_key' => 'old_custom_0', 'api_key' => 'keep-legacy');
+    $result = $service->import($mixed);
+    check(!is_wp_error($result) && $result['imported'] === 7 && $result['skipped'] === 5, 'A twelve-row legacy backup must import supported integrations and report skipped custom records.');
+    check(strpos($result['message'], '5 desteklenmeyen') !== false, 'Skipped count must be visible to the user.');
+    check($wpdb->suppliers[90]['api_key'] === 'keep-legacy' && count($wpdb->suppliers) === 8, 'Legacy records must not be overwritten or recreated.');
+    check($wpdb->suppliers[42]['api_key'] === 'current-hepsiburada', 'Current integration credentials must still import.');
+    check(count($service->export()['suppliers']) === 7, 'New exports must exclude legacy records.');
+    check(!is_wp_error($service->import($mixed)) && count($wpdb->suppliers) === 8, 'Reimport must not duplicate legacy or current records.');
+    $only_custom = $mixed;
+    $only_custom['suppliers'] = array_slice($mixed['suppliers'], 7);
+    $before = array($wpdb->suppliers, $wpdb->settings, $options, $wpdb->transactions);
+    check(is_wp_error($service->import($only_custom)), 'A legacy-only backup must not report a successful restore.');
+    check($before === array($wpdb->suppliers, $wpdb->settings, $options, $wpdb->transactions), 'A legacy-only backup must not change global settings.');
 
     $rest = new \MultiSync\Api\RestApi();
     $rest->register_routes();

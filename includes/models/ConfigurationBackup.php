@@ -6,6 +6,7 @@ if (!defined('ABSPATH')) exit;
 
 class ConfigurationBackup
 {
+    private const MARKETPLACES = array('trendyol', 'n11', 'pazarama', 'ciceksepeti', 'amazon', 'pttavm', 'hepsiburada');
     private const SUPPLIER_FIELDS = array('name', 'marketplace_key', 'active', 'commission_rate', 'color', 'api_key', 'api_secret', 'seller_id', 'amazon_refresh_token', 'ptt_rest_api_key', 'ptt_access_token', 'n11_shipment_template', 'hepsiburada_environment', 'hepsiburada_developer_username', 'hepsiburada_test_api_key', 'hepsiburada_test_api_secret', 'hepsiburada_test_seller_id');
     private const SETTINGS_FIELDS = array('sync_stock', 'sync_price', 'sync_products', 'sync_orders', 'stock_automation_mode', 'schedule', 'interval_minutes');
     private const MAPPINGS = array(
@@ -23,6 +24,10 @@ class ConfigurationBackup
         $suppliers = (new Supplier())->get_all();
         if (!is_array($suppliers)) return new \WP_Error('multi_sync_backup_read_failed', 'Pazar yeri ayarları okunamadı.', array('status' => 500));
         foreach ($suppliers as $supplier) {
+            if (!in_array($supplier->marketplace_key, self::MARKETPLACES, true)) continue;
+            // Match the account selected by the admin panel; leave legacy rows in the database.
+            $current = (new Supplier())->get_by_marketplace_key($supplier->marketplace_key);
+            if (!$current || (int) $current->id !== (int) $supplier->id) continue;
             $entry = array(
                 'supplier' => array_intersect_key((array) $supplier, array_flip(self::SUPPLIER_FIELDS)),
                 'settings' => array_intersect_key((array) (new SyncSettings())->get($supplier->id), array_flip(self::SETTINGS_FIELDS)),
@@ -60,14 +65,20 @@ class ConfigurationBackup
         try {
             $this->require_valid(is_array($backup) && ($backup['format'] ?? '') === 'open-entegre-settings' && ($backup['version'] ?? null) === 1, 'Geçerli bir Open Entegre ayar yedeği seçin.');
             $this->require_valid(isset($backup['suppliers'], $backup['options']) && is_array($backup['suppliers']) && is_array($backup['options']), 'Yedek yapısı geçersiz.');
-            $this->require_valid(count($backup['suppliers']) > 0 && count($backup['suppliers']) <= 7, 'Yedekteki pazar yeri sayısı geçersiz.');
+            $this->require_valid(count($backup['suppliers']) > 0, 'Yedekte pazar yeri kaydı yok.');
             $plans = array();
             $seen = array();
+            $skipped = 0;
             foreach ($backup['suppliers'] as $entry) {
                 $this->require_valid(is_array($entry) && isset($entry['supplier'], $entry['settings'], $entry['mappings']) && is_array($entry['mappings']), 'Pazar yeri kaydı geçersiz.');
                 $supplier = $this->fields($entry['supplier'], self::SUPPLIER_FIELDS);
                 $marketplace = $supplier['marketplace_key'] ?? '';
-                $this->require_valid(in_array($marketplace, array('trendyol', 'n11', 'pazarama', 'ciceksepeti', 'amazon', 'pttavm', 'hepsiburada'), true) && !isset($seen[$marketplace]), 'Geçersiz veya tekrarlanan pazar yeri.');
+                $this->require_valid(is_string($marketplace) && $marketplace !== '', 'Pazar yeri anahtarı geçersiz.');
+                if (!in_array($marketplace, self::MARKETPLACES, true)) {
+                    $skipped++;
+                    continue;
+                }
+                $this->require_valid(!isset($seen[$marketplace]), 'Yedekte aynı entegrasyon için birden fazla kayıt var: ' . $marketplace . '. Güncel sürümle yeniden dışa aktarın.');
                 $this->require_valid(!empty($supplier['name']), 'Pazar yeri adı eksik.');
                 $seen[$marketplace] = true;
                 $settings = $this->fields($entry['settings'], self::SETTINGS_FIELDS);
@@ -105,6 +116,7 @@ class ConfigurationBackup
                 if (!isset($mappings['categories']) && isset($mappings['categories_legacy'])) $mappings['categories'] = $mappings['categories_legacy'];
                 $plans[] = array($supplier, $settings, $mappings);
             }
+            $this->require_valid(count($plans) > 0, 'Yedekte desteklenen pazar yeri kaydı yok; hiçbir ayar değiştirilmedi.');
             $this->require_valid(!array_diff(array_keys($backup['options']), self::OPTIONS), 'Yedekte desteklenmeyen genel ayar var.');
             foreach ($backup['options'] as $key => $value) $this->require_valid(is_array($value), 'Genel ayar yapısı geçersiz.');
             $options = $this->clean_tree($backup['options']);
@@ -159,7 +171,9 @@ class ConfigurationBackup
             \MultiSync\Sync\StockScheduler::sync_supplier_schedule($id);
             \MultiSync\Sync\OrderScheduler::sync_supplier_schedule($id);
         }
-        return array('success' => true, 'message' => count($ids) . ' pazar yerinin ayarları içe aktarıldı.');
+        $message = count($ids) . ' pazar yerinin ayarları içe aktarıldı.';
+        if ($skipped) $message .= ' ' . $skipped . ' desteklenmeyen eski/özel pazar yeri kaydı atlandı.';
+        return array('success' => true, 'imported' => count($ids), 'skipped' => $skipped, 'message' => $message);
     }
 
     private function fields($data, $allowed)

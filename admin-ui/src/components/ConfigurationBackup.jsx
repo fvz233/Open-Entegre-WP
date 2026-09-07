@@ -74,7 +74,7 @@ export default function ConfigurationBackup({ onImported }) {
     return (
         <details style={{ marginBottom: 16, padding: 16, background: '#fff', border: '1px solid #dcdcde', borderRadius: 8 }}>
             <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Ayarları İçe / Dışa Aktar</summary>
-            <p>Tüm pazar yerlerinin API bilgileri, kategori/marka eşleşmeleri (test ortamı dahil), kategori komisyonları, senkron ve genel ayarları JSON olarak aktarılır.</p>
+            <p>Paneldeki pazar yerlerinin API bilgileri, kategori/marka eşleşmeleri (test ortamı dahil), kategori komisyonları, senkron ve genel ayarları JSON olarak aktarılır. Eski yedeklerdeki desteklenmeyen özel pazar yeri kayıtları içe aktarılırken atlanır.</p>
             <p>Ürün KDV oranları custom meta alanındadır; ürünler, ürün metaları, siparişler ve işlem geçmişi bu yedeğe dahil değildir.</p>
             <p><strong>Dosya API anahtarlarını ve gizli bilgileri açık olarak içerir. Güvenli bir yerde saklayın.</strong></p>
             <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
