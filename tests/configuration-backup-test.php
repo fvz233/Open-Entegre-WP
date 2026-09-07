@@ -121,11 +121,21 @@ namespace {
     check($options['unrelated_option'] === 'keep', 'Unrelated options must remain untouched.');
     check(!is_wp_error($service->import($backup)) && count($wpdb->suppliers) === 1, 'Repeated imports must not duplicate suppliers.');
 
+    foreach (array('', null, 'production', 'live', 'test', 'missing') as $environment) {
+        $legacy_environment = $backup;
+        $legacy_environment['suppliers'][0]['supplier']['hepsiburada_environment'] = $environment;
+        if ($environment === 'missing') unset($legacy_environment['suppliers'][0]['supplier']['hepsiburada_environment']);
+        check(!is_wp_error($service->import($legacy_environment)), 'Legacy environment values must follow the existing adapter behavior.');
+        check($wpdb->suppliers[42]['hepsiburada_environment'] === ($environment === 'test' ? 'test' : 'production'), 'Only test must select the test environment; legacy values default to production.');
+        check($wpdb->suppliers[42]['api_secret'] === $backup['suppliers'][0]['supplier']['api_secret'] && $wpdb->suppliers[42]['hepsiburada_test_api_key'] === 'test-key', 'Environment normalization must preserve both credential sets.');
+    }
+
     $invalid_cases = array();
     $bad = $backup; $bad['version'] = 99; $invalid_cases[] = $bad;
     $bad = $backup; $bad['options']['admin_email'] = 'evil'; $invalid_cases[] = $bad;
     $bad = $backup; $bad['suppliers'][0]['supplier']['id'] = 99; $invalid_cases[] = $bad;
     $bad = $backup; $bad['suppliers'][0]['supplier']['api_key'] = array('nested'); $invalid_cases[] = $bad;
+    $bad = $backup; $bad['suppliers'][0]['supplier']['hepsiburada_environment'] = array('test'); $invalid_cases[] = $bad;
     $bad = $backup; $bad['suppliers'][0]['supplier']['seller_id'] = str_repeat('x', 101); $invalid_cases[] = $bad;
     $bad = $backup; $bad['suppliers'][0]['mappings']['categories'][0]['value']['category_name'] = array('nested'); $invalid_cases[] = $bad;
     $bad = $backup; $bad['suppliers'][0]['mappings']['categories'][0]['value']['attributes'][0]['attributeValueIds'] = 'invalid'; $invalid_cases[] = $bad;

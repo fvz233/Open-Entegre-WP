@@ -81,6 +81,8 @@ class ConfigurationBackup
                 $this->require_valid(!isset($seen[$marketplace]), 'Yedekte aynı entegrasyon için birden fazla kayıt var: ' . $marketplace . '. Güncel sürümle yeniden dışa aktarın.');
                 $this->require_valid(!empty($supplier['name']), 'Pazar yeri adı eksik.');
                 $seen[$marketplace] = true;
+                // Match Supplier and the adapter: only the exact value "test" selects the test environment.
+                $supplier['hepsiburada_environment'] = ($supplier['hepsiburada_environment'] ?? '') === 'test' ? 'test' : 'production';
                 $settings = $this->fields($entry['settings'], self::SETTINGS_FIELDS);
                 foreach (array('active', 'sync_stock', 'sync_price', 'sync_products', 'sync_orders') as $field) {
                     $value = $supplier[$field] ?? $settings[$field] ?? 0;
@@ -88,7 +90,7 @@ class ConfigurationBackup
                 }
                 $this->require_valid(!isset($supplier['commission_rate']) || (is_numeric($supplier['commission_rate']) && $supplier['commission_rate'] >= 0 && $supplier['commission_rate'] < 100), 'Komisyon oranı geçersiz.');
                 $this->require_valid(!isset($supplier['color']) || preg_match('/^#[a-f0-9]{6}$/i', $supplier['color']), 'Pazar yeri rengi geçersiz.');
-                foreach (array('hepsiburada_environment' => array('test', 'production'), 'stock_automation_mode' => array('scheduled', 'event_driven'), 'schedule' => array('manual', 'hourly', 'daily', 'per_minute'), 'interval_minutes' => array('5', '10', '15', '30')) as $field => $allowed) {
+                foreach (array('stock_automation_mode' => array('scheduled', 'event_driven'), 'schedule' => array('manual', 'hourly', 'daily', 'per_minute'), 'interval_minutes' => array('5', '10', '15', '30')) as $field => $allowed) {
                     $value = $supplier[$field] ?? $settings[$field] ?? null;
                     $this->require_valid($value === null || in_array((string) $value, $allowed, true), 'Geçersiz ayar: ' . $field);
                 }
