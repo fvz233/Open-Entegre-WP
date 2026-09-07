@@ -22,6 +22,15 @@ assert.deepEqual(response.data, { success: true });
 assert.equal(request.url, 'https://example.test/wp-json/multi-sync/v1/jobs?status=pending');
 assert.equal(request.options.headers['X-WP-Nonce'], 'test-nonce');
 
+await api.exportConfiguration();
+assert.equal(request.url, 'https://example.test/wp-json/multi-sync/v1/settings/backup');
+assert.equal(request.options.method, 'GET');
+const settingsBackup = { format: 'open-entegre-settings', version: 1, suppliers: [], options: {} };
+await api.importConfiguration(settingsBackup);
+assert.equal(request.options.method, 'POST');
+assert.equal(request.options.headers['X-WP-Nonce'], 'test-nonce');
+assert.deepEqual(JSON.parse(request.options.body), settingsBackup);
+
 await api.getMarketplaceCategoryMappings(7);
 assert.match(request.url, /^https:\/\/example\.test\/wp-json\/multi-sync\/v1\/marketplaces\/category-mappings\/7\?_\=\d+$/);
 

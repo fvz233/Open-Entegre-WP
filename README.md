@@ -53,6 +53,14 @@ Eklenti etkinleştirildiğinde gerekli veritabanı tablolarını oluşturur ve z
 - **Senkron Merkezi:** Önizleme, manuel çalıştırma ve kuyruk işlemleri
 - **Sorular:** Pazar yerlerinden gelen müşteri soruları
 
+## Ayar yedeği
+
+Yönetim ekranının üstündeki **Ayarları İçe / Dışa Aktar** bölümünden JSON yedeği indirin veya bir yedek seçip **Ayarları İçe Aktar** düğmesine basın. Yedek; API bilgilerini, test ortamı ayarlarını, kategori/marka ve nitelik eşleşmelerini, kategori komisyonlarını, senkron ayarlarını, fiyat düşüş eşiğini ve özel sipariş durumlarını içerir. API anahtarları dosyada açık olarak bulunur; dosyayı güvenli saklayın.
+
+Pazar yerleri anahtarlarına, kategori ve markalar taksonomi/slug değerlerine göre hedef siteyle eşleşir. Önce WooCommerce kategori ve markalarını aktarın; eksik eşleşme varsa hiçbir değişiklik uygulanmaz. Dosyadaki ayarlar ve aynı eşleşmeler güncellenir, diğer eşleşmeler korunur. Zamanlanmış senkronlar aktarılan ayarlara göre yeniden düzenlenir. Kayıt hatasında değişiklikler geri alınır; ilgili tabloların InnoDB olması gerekir. Dosya sınırı 10 MB'dir.
+
+Ürünler, siparişler, işlem geçmişi ve ürün custom metaları bu yedeğe dahil değildir. KDV oranı `_multi_sync_vat_rate` ürün metasında saklanır ve ürün verileriyle taşınmalıdır.
+
 ## Sürüm geçmişi
 
 ### 1.0.46

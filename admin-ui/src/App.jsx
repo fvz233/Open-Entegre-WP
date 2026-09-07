@@ -5,6 +5,7 @@ import SyncSettings from './components/Tabs/SyncSettings';
 import SyncCenter from './components/Tabs/SyncCenter';
 import MarketplaceCategoryMapping from './components/MarketplaceCategoryMapping';
 import QuestionsPage from './pages/QuestionsPage';
+import ConfigurationBackup from './components/ConfigurationBackup';
 
 const pluginUrl = (typeof window !== 'undefined' && window.multiSyncSettings && window.multiSyncSettings.pluginUrl)
     ? String(window.multiSyncSettings.pluginUrl)
@@ -80,6 +81,7 @@ function App() {
     const [activeTab, setActiveTab] = useState('authorization');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [configurationRevision, setConfigurationRevision] = useState(0);
     const supplierTabs = getSupplierTabs(activeSupplier);
 
     useEffect(() => {
@@ -131,6 +133,11 @@ function App() {
                 {updateStatus === 'current' && <span style={{ color: '#50705a' }}>Sürüm güncel.</span>}
                 {updateStatus === 'error' && <span style={{ color: '#b32d2e' }}>Güncelleme kontrol edilemedi.</span>}
             </div>
+
+            <ConfigurationBackup onImported={async () => {
+                await fetchSuppliers();
+                setConfigurationRevision(value => value + 1);
+            }} />
 
             <div className="marketplace-selector">
                 <div className="marketplace-carousel" role="tablist" aria-label="Genel ve pazar yeri seçimi">
@@ -208,7 +215,7 @@ function App() {
                 </div>
             )}
 
-            <div className="tab-content">
+            <div className="tab-content" key={configurationRevision}>
                 {isSyncCenterActive && <SyncCenter suppliers={suppliers} />}
                 {!isSyncCenterActive && activeTab === 'authorization' && activeSupplier && <Authorization supplier={activeSupplier} onSupplierUpdate={fetchSuppliers} />}
                 {!isSyncCenterActive && activeTab === 'authorization' && !activeSupplier && <p>Pazar yeri bulunamadı.</p>}

@@ -28,6 +28,11 @@ class RestApi
     {
         $namespace = 'multi-sync/v1';
 
+        register_rest_route($namespace, '/settings/backup', array(
+            array('methods' => 'GET', 'callback' => array($this, 'export_configuration'), 'permission_callback' => array($this, 'check_permission')),
+            array('methods' => 'POST', 'callback' => array($this, 'import_configuration'), 'permission_callback' => array($this, 'check_permission')),
+        ));
+
         // Suppliers
         register_rest_route($namespace, '/suppliers', array(
             'methods' => 'GET',
@@ -241,6 +246,23 @@ class RestApi
     public function check_permission()
     {
         return current_user_can('manage_options');
+    }
+
+    public function export_configuration()
+    {
+        $result = (new \MultiSync\Models\ConfigurationBackup())->export();
+        if (is_wp_error($result)) return $result;
+        $response = rest_ensure_response($result);
+        $response->header('Cache-Control', 'no-store, private');
+        return $response;
+    }
+
+    public function import_configuration($request)
+    {
+        if (strlen($request->get_body()) > 10 * 1024 * 1024) {
+            return new \WP_Error('multi_sync_backup_too_large', 'Yedek dosyası en fazla 10 MB olabilir.', array('status' => 413));
+        }
+        return rest_ensure_response((new \MultiSync\Models\ConfigurationBackup())->import($request->get_json_params()));
     }
 
     public function get_suppliers()

@@ -50,6 +50,8 @@ const api = {
 };
 
 export default {
+    exportConfiguration: () => api.get('/settings/backup'),
+    importConfiguration: (data) => api.post('/settings/backup', data),
     getSuppliers: () => api.get('/suppliers', { params: { _: Date.now() } }),
     updateSupplier: (id, data) => api.post(`/suppliers/${id}`, data),
     runSync: (supplierId, type, selectedItems = [], variationChoices = {}) => api.post('/sync/run', { supplier_id: supplierId, type, selected_items: selectedItems, variation_choices: variationChoices }),
