@@ -130,14 +130,13 @@ function App() {
                 <h1>Open Entegre</h1>
                 {pluginVersion && <span style={{ fontSize: '12px', color: '#888' }}>v{pluginVersion}</span>}
                 {updateUrl && <a className="button button-small" href={updateUrl}>Güncelle</a>}
+                <ConfigurationBackup onImported={async () => {
+                    await fetchSuppliers();
+                    setConfigurationRevision(value => value + 1);
+                }} />
                 {updateStatus === 'current' && <span style={{ color: '#50705a' }}>Sürüm güncel.</span>}
                 {updateStatus === 'error' && <span style={{ color: '#b32d2e' }}>Güncelleme kontrol edilemedi.</span>}
             </div>
-
-            <ConfigurationBackup onImported={async () => {
-                await fetchSuppliers();
-                setConfigurationRevision(value => value + 1);
-            }} />
 
             <div className="marketplace-selector">
                 <div className="marketplace-carousel" role="tablist" aria-label="Genel ve pazar yeri seçimi">

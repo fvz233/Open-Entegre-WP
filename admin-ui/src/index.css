@@ -225,6 +225,13 @@
     gap: 16px;
 }
 .grid-2 { grid-template-columns: 1fr 1fr; }
+.marketplace-mappings > div {
+    min-width: 0;
+}
+.marketplace-mappings select {
+    width: 100%;
+    max-width: 100%;
+}
 .log-entry { padding: 10px; border-bottom: 1px solid #eee; }
 .log-error { color: red; }
 .log-success { color: green; }

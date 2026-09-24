@@ -201,7 +201,7 @@ function MarketplaceCategoryMapping({ supplier, onSupplierUpdate }) {
     };
 
     return (
-        <div style={{ marginTop: '18px', borderTop: '1px solid #eee', paddingTop: '14px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '18px' }}>
+        <div className="marketplace-mappings" style={{ marginTop: '18px', borderTop: '1px solid #eee', paddingTop: '14px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '18px' }}>
             {feedback && (
                 <div className={`multi-sync-feedback ${feedback.type}`} role={feedback.type === 'error' ? 'alert' : 'status'} aria-live="polite" style={{ gridColumn: '1 / -1' }}>
                     {feedback.message}

@@ -201,6 +201,12 @@ $attribute_fields = $attribute_fields_method->invoke(new MultiSync\Sync\ProductP
     'attribute_definitions' => array(array('id' => 8, 'name' => 'Materyal', 'values' => array(array('id' => 9, 'name' => 'Pamuk')))),
 ));
 check($attribute_fields[0]['key'] === 'attribute_8' && $attribute_fields[0]['matched_label'] === 'Pamuk', 'Category attributes were not exposed for per-product overrides.');
+$brand_attribute_fields = $attribute_fields_method->invoke(new MultiSync\Sync\ProductPublisher(), array(
+    'brand_id' => '9',
+    'brand_name' => 'Demsu',
+    'attribute_definitions' => array(array('id' => 1, 'name' => 'Marka', 'values' => array(array('id' => 9, 'name' => 'Demsu')))),
+));
+check($brand_attribute_fields[0]['matched_value'] === '9' && $brand_attribute_fields[0]['matched_label'] === 'Demsu', 'Saved brand mapping was not exposed in product export preview.');
 $publisher_source = file_get_contents(dirname(__DIR__) . '/includes/sync/ProductPublisher.php');
 check(strpos($publisher_source, '$supports_update && !$product_overrides') !== false, 'Attribute overrides would be ignored for an already-published product.');
 $brand_method = new ReflectionMethod(MultiSync\Sync\ProductPublisher::class, 'brand_mapping');

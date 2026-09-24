@@ -30,6 +30,7 @@ export default function ConfigurationBackup({ onImported }) {
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
+    const [open, setOpen] = useState(false);
 
     const loadExportChoices = async () => {
         setBusy(true);
@@ -119,9 +120,14 @@ export default function ConfigurationBackup({ onImported }) {
         }
     };
 
-    return (
-        <details style={{ marginBottom: 16, padding: 16, background: '#fff', border: '1px solid #dcdcde', borderRadius: 8 }}>
-            <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Ayarları İçe / Dışa Aktar</summary>
+    return <>
+        <button type="button" className="button button-small" onClick={() => setOpen(true)}>İçe / Dışa Aktar</button>
+        {open && <div className="multi-sync-modal-overlay" role="presentation" onMouseDown={event => event.target === event.currentTarget && setOpen(false)}>
+            <div className="multi-sync-modal-card" role="dialog" aria-modal="true" aria-labelledby="configuration-backup-title">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                    <h2 id="configuration-backup-title" style={{ margin: 0 }}>Ayarları İçe / Dışa Aktar</h2>
+                    <button type="button" className="button" onClick={() => setOpen(false)}>Kapat</button>
+                </div>
             <p>Seçtiğiniz kayıtların API bilgileri, kategori/marka eşleşmeleri (test ortamı dahil), kategori komisyonları ve senkron ayarları aktarılır. Genel ayarlar da dosyaya dahildir.</p>
             <p>Ürün KDV oranları custom meta alanındadır; ürünler, ürün metaları, siparişler ve işlem geçmişi bu yedeğe dahil değildir.</p>
             <p><strong>Dosya API anahtarlarını ve gizli bilgileri açık olarak içerir. Güvenli bir yerde saklayın.</strong></p>
@@ -151,6 +157,7 @@ export default function ConfigurationBackup({ onImported }) {
             {busy && <p role="status">İşlem sürüyor...</p>}
             {message && <p role="status" style={{ color: '#276738' }}>{message}</p>}
             {error && <p role="alert" style={{ color: '#b32d2e' }}>{error}</p>}
-        </details>
-    );
+            </div>
+        </div>}
+    </>;
 }

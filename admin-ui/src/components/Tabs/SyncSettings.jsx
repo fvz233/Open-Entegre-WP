@@ -26,7 +26,6 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
     const [showProductPublishModal, setShowProductPublishModal] = useState(false);
     const [manualSyncStock, setManualSyncStock] = useState(true);
     const [manualSyncPrice, setManualSyncPrice] = useState(false);
-    const [showDebugMenu] = useState(true);
     const [debugLoading, setDebugLoading] = useState(false);
     const [debugError, setDebugError] = useState('');
     const [debugEntry, setDebugEntry] = useState(null);
@@ -580,8 +579,8 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
                         </button>
                     </div>
 
-                    {showDebugMenu && (
-                        <div style={{ marginTop: '12px', border: '1px dashed #b4b8bf', borderRadius: '6px', padding: '12px', background: '#fafbfd' }}>
+                    <details style={{ marginTop: '12px', border: '1px dashed #b4b8bf', borderRadius: '6px', padding: '12px', background: '#fafbfd' }}>
+                        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Debug</summary>
                             <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
                                 <strong>Debug Menüsü (HTTP Geçmişi)</strong>
                                 <input
@@ -780,8 +779,7 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
                                     )}
                                 </div>
                             )}
-                        </div>
-                    )}
+                    </details>
                 </div>
             </div>
 

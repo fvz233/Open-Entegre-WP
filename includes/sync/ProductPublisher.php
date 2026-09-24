@@ -675,6 +675,10 @@ class ProductPublisher
             if ($id === '') continue;
             $value = $matched[$id] ?? '';
             $label = $value;
+            if ($value === '' && preg_match('/brand|marka/i', (string) ($definition['name'] ?? ''))) {
+                $value = (string) ($mapping['brand_id'] ?? '');
+                $label = (string) (($mapping['brand_name'] ?? '') ?: $value);
+            }
             foreach ((array) ($definition['values'] ?? array()) as $option) {
                 if ((string) ($option['id'] ?? '') === $value) $label = (string) ($option['name'] ?? $value);
             }
