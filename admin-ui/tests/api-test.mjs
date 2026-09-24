@@ -104,7 +104,7 @@ assert.match(categoryMappingSource, /attribute\.required && 'zorunlu'/);
 assert.match(categoryMappingSource, /attribute\.slicer \|\| attribute\.varianter/);
 assert.match(categoryMappingSource, /'isteğe bağlı'/);
 assert.match(categoryMappingSource, /supplier\.marketplace_key === 'n11'.*WooCommerce marka adından alınır\./s);
-assert.match(categoryMappingSource, /supplier\.marketplace_key !== 'n11' && <div style=\{sectionStyle\}>/);
+assert.doesNotMatch(categoryMappingSource, /supplier\.marketplace_key !== 'n11'/);
 assert.match(productSelectorSource, /✓ \$\{commonVariationApplied\} ürüne uygulandı/);
 
 const commonVariationOptions = getCommonVariationOptions([

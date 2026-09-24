@@ -180,13 +180,20 @@ $manual_commission = $product_mapping_method->invoke(new MultiSync\Sync\ProductP
     'marketplace_key' => 'trendyol',
 ));
 check($manual_commission['commission_rate'] === 10, 'Manual category commission must override the API rate.');
-$n11_brand_fallback = $product_mapping_method->invoke(new MultiSync\Sync\ProductPublisher(), new PublishProduct(), array(
+$n11_brand_mapping = $product_mapping_method->invoke(new MultiSync\Sync\ProductPublisher(), new PublishProduct(), array(
     'mappings' => array(3 => array('category_id' => 30)),
     'brand_mappings' => array('product_brand:5' => array('brand_id' => '12', 'brand_name' => 'Eski Esleme')),
     'commission_rates' => array(),
     'marketplace_key' => 'n11',
 ));
-check($n11_brand_fallback['brand_name'] === 'Demsu' && empty($n11_brand_fallback['brand_id']), 'n11 did not use the WooCommerce brand name directly.');
+check($n11_brand_mapping['brand_name'] === 'Eski Esleme' && $n11_brand_mapping['brand_id'] === '12', 'n11 did not use the saved brand mapping.');
+$n11_brand_fallback = $product_mapping_method->invoke(new MultiSync\Sync\ProductPublisher(), new PublishProduct(), array(
+    'mappings' => array(3 => array('category_id' => 30)),
+    'brand_mappings' => array(),
+    'commission_rates' => array(),
+    'marketplace_key' => 'n11',
+));
+check($n11_brand_fallback['brand_name'] === 'Demsu' && empty($n11_brand_fallback['brand_id']), 'n11 did not fall back to the WooCommerce brand name.');
 $attribute_fields_method = new ReflectionMethod(MultiSync\Sync\ProductPublisher::class, 'attribute_fields');
 $attribute_fields_method->setAccessible(true);
 $attribute_fields = $attribute_fields_method->invoke(new MultiSync\Sync\ProductPublisher(), array(

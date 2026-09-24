@@ -264,7 +264,7 @@ function MarketplaceCategoryMapping({ supplier, onSupplierUpdate }) {
                     </div>
                 ))}
             </div>
-            {supplier.marketplace_key !== 'n11' && <div style={sectionStyle}>
+            <div style={sectionStyle}>
                 <h4>{marketplace} Marka Eşlemesi</h4>
                 {wooBrands.length === 0 ? (
                     <small>WooCommerce marka taksonomisi bulunamadı. Önce ürün markalarını oluşturun.</small>
@@ -307,7 +307,7 @@ function MarketplaceCategoryMapping({ supplier, onSupplierUpdate }) {
                         <button type="button" onClick={() => removeBrand(brandKey)} disabled={loading}>Sil</button>
                     </div>
                 ))}
-            </div>}
+            </div>
             {supplier.marketplace_key === 'n11' && (
                 <div style={sectionStyle}>
                     <h4 style={{ marginTop: 0 }}>n11 Genel Ayarları</h4>

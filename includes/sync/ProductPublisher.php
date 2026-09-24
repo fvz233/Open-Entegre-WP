@@ -653,7 +653,7 @@ class ProductPublisher
         if ($category_id !== '' && !array_key_exists('commission_rate', $mapping) && isset($context['commission_rates'][$category_id])) {
             $mapping['commission_rate'] = (float) $context['commission_rates'][$category_id];
         }
-        if ($context['marketplace_key'] !== 'n11') $mapping = array_merge($mapping, $this->brand_mapping($product, $context['brand_mappings']));
+        $mapping = array_merge($mapping, $this->brand_mapping($product, $context['brand_mappings']));
         if ($context['marketplace_key'] === 'n11' && empty($mapping['brand_id']) && empty($mapping['brand_name'])) {
             $parent = $product->is_type('variation') ? wc_get_product($product->get_parent_id()) : null;
             $brand = $this->woo_product_brand($parent ?: $product);
