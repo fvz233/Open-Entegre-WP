@@ -155,6 +155,10 @@ $n11_variation = (new MultiSync\Marketplaces\N11Marketplace())->build_product_it
 check(!is_wp_error($n11_variation) && $n11_variation['productMainId'] === 'PARENT-SKU' && $n11_variation['stockCode'] === 'COLORFULL-SKU', 'n11 variation identifiers were not separated.');
 check($n11_variation['attributes'][0]['customValue'] === 'Colorfull', 'n11 variation attribute was not mapped.');
 check(array_column($n11_variation['images'], 'url') === array('http://example.test/9.jpg'), 'n11 variation payload included parent images.');
+$n11_standalone_variation = (new MultiSync\Marketplaces\N11Marketplace())->build_product_item_from_product($GLOBALS['woo_products'][41], array(
+    'shipment_template' => 'Global Standart',
+), array('category_id' => '100', 'vat_rate' => '20'));
+check(!is_wp_error($n11_standalone_variation) && $n11_standalone_variation['productMainId'] === 'COLORFULL-SKU', 'n11 category without variant fields did not export the variation as a standalone product.');
 $expand = new ReflectionMethod(MultiSync\Sync\ProductPublisher::class, 'expand_variation_product_ids');
 $expand->setAccessible(true);
 check($expand->invoke(new MultiSync\Sync\ProductPublisher(), array(41)) === array(41, 42), 'n11 selected variation did not expand to its whole family.');

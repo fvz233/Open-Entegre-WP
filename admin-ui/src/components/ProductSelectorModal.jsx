@@ -525,7 +525,7 @@ function ProductSelectorModal({
                                                 <div style={{ padding: '0 12px 12px' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 10px', background: '#eef2f6', borderRadius: '5px', marginBottom: '8px' }}>
                                                         {isProductPublishPreview && targetOptions.length === 0 ? (
-                                                            <small>Trendyol bu kategoride varyasyon niteliği sunmuyor; her varyasyon ayrı ürün gönderilecek.</small>
+                                                            <small>{supplier?.name || 'Pazar yeri'} bu kategoride varyasyon niteliği sunmuyor; her varyasyon ayrı ürün gönderilecek.</small>
                                                         ) : <>
                                                             <label style={{ fontSize: '12px', fontWeight: 600 }}>{isProductPublishPreview ? 'WooCommerce kaynak alanı' : 'Varyasyon özelliği'}</label>
                                                             <select

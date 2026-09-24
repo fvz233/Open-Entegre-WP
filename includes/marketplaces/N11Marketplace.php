@@ -373,7 +373,14 @@ class N11Marketplace extends BaseMarketplace
         };
         $sku = $value('sku', $product->get_sku());
         $barcode = $value('barcode') ?: null;
+        $variation_definitions = array_values(array_filter((array) ($category_mapping['attribute_definitions'] ?? array()), function ($definition) {
+            return is_array($definition) && !empty($definition['id']) && (!empty($definition['slicer']) || !empty($definition['varianter']));
+        }));
+        $supports_variations = $parent && !empty($variation_definitions);
         $model = $value('product_main_id', $parent ? $parent->get_sku() : $sku);
+        if ($parent && !$supports_variations) {
+            $model = $sku;
+        }
         $category_id = $value('category_id', $category_mapping['category_id'] ?? '');
         $shipment = $value('shipment_template', $category_mapping['shipment_template'] ?? '');
         $vat = $this->get_product_vat_rate($product, $value('vat_rate'));
@@ -391,20 +398,18 @@ class N11Marketplace extends BaseMarketplace
         foreach ((array) ($category_mapping['attributes'] ?? array()) as $mapped) {
             if (!empty($mapped['attributeId'])) $mapped_attributes[(string) $mapped['attributeId']] = (string) (($mapped['attributeValueIds'][0] ?? null) ?: ($mapped['attributeValue'] ?? ''));
         }
-        $selected_variation_attribute = $value('variation_attribute');
-        $selected_variation_target = (int) $value('variation_target_attribute_id');
+        $selected_variation_attribute = $supports_variations ? $value('variation_attribute') : '';
+        $selected_variation_target = $supports_variations ? (int) $value('variation_target_attribute_id') : 0;
         $variation_value = $this->variation_value($product, $parent, $selected_variation_attribute);
-        if ($parent && $selected_variation_attribute === '') {
+        if ($supports_variations && $selected_variation_attribute === '') {
             $missing[] = array('key' => 'variation_attribute', 'label' => 'WooCommerce kaynak alani', 'type' => 'select', 'options' => array_map(function ($name) use ($parent) {
                 return array('id' => $name, 'name' => function_exists('wc_attribute_label') ? wc_attribute_label($name, $parent) : $name);
             }, array_keys((array) $product->get_attributes())));
         }
-        if ($parent && $selected_variation_target <= 0) {
+        if ($supports_variations && $selected_variation_target <= 0) {
             $missing[] = array('key' => 'variation_target_attribute_id', 'label' => 'n11 hedef niteligi', 'type' => 'select', 'options' => array_values(array_map(function ($definition) {
                 return array('id' => (string) ($definition['id'] ?? ''), 'name' => (string) ($definition['name'] ?? ''));
-            }, array_filter((array) ($category_mapping['attribute_definitions'] ?? array()), function ($definition) {
-                return is_array($definition) && !empty($definition['id']) && (!empty($definition['slicer']) || !empty($definition['varianter']));
-            }))));
+            }, $variation_definitions)));
         }
         foreach ((array) ($category_mapping['attribute_definitions'] ?? array()) as $definition) {
             $id = (string) ($definition['id'] ?? '');
