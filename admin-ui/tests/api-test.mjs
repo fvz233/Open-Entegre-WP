@@ -101,6 +101,8 @@ assert.match(appSource, /Eşleştirmeler/);
 assert.match(appSource, /questionMarketplaces = new Set\(\['trendyol'\]\)/);
 assert.doesNotMatch(settingsSource, /TrendyolCategoryMapping/);
 assert.match(settingsSource, /watchStockPriceJob\(jobId\)/);
+assert.match(settingsSource, /manual_sync_price: manualSyncPrice/);
+assert.match(settingsSource, /setManualSyncPrice\(toCheckboxValue\(response\.data\.manual_sync_price\)\)/);
 assert.match(settingsSource, /\['completed', 'failed', 'cancelled', 'waiting_remote'\]/);
 assert.match(settingsSource, /setPublishPopup\(true\)/);
 assert.match(baseMarketplaceSource, /strpos\(\$send_target, 'stock'\)/);

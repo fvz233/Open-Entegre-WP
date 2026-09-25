@@ -85,6 +85,7 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
                     schedule,
                     interval_minutes
                 });
+                setManualSyncPrice(toCheckboxValue(response.data.manual_sync_price));
             }
         } catch (e) {
             console.error('Ayar yükleme hatası:', e);
@@ -96,7 +97,7 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
         setLoading(true);
         try {
             // Save sync settings
-            await api.saveSyncSettings(supplier.id, settings);
+            await api.saveSyncSettings(supplier.id, { ...settings, manual_sync_price: manualSyncPrice });
             setFeedback({ type: 'success', message: 'Tüm ayarlar kaydedildi.' });
 
             // Refresh supplier data to show updated values

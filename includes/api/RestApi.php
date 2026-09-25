@@ -1030,6 +1030,7 @@ class RestApi
             return rest_ensure_response((object) array(
                 'sync_stock' => 0,
                 'sync_price' => 0,
+                'manual_sync_price' => 0,
                 'sync_products' => 0,
                 'sync_orders' => 0,
                 'stock_automation_mode' => 'scheduled',

@@ -251,6 +251,15 @@ $hb_status = $hepsiburada->get_batch_request_result($hb_test_supplier, 'tracking
 check(count($hb_status['data']) === 2 && $hb_status['data'][0]['importStatus'] === 'PROCESSING' && strpos($GLOBALS['hepsiburada_json_request']['url'], 'https://mpop-sit.hepsiburada.com/product/api/products/status/tracking%201?page=1') === 0, 'Hepsiburada SIT tracking status pagination failed.');
 check(MultiSync\Sync\ProductPublisher::ciceksepeti_batch_verdict($hb_status) === 'pending', 'Hepsiburada processing status was treated as complete.');
 check(MultiSync\Sync\ProductPublisher::ciceksepeti_batch_verdict(array('success' => false)) === 'failed', 'Hepsiburada failed status was treated as complete.');
+$hepsiburada->responses = array(array('data' => array('status' => 'Completed')));
+$hb_inventory_status = $hepsiburada->get_inventory_upload_result($hb_test_supplier, 'inventory 1');
+check($hb_inventory_status['status'] === 'Completed' && strpos($GLOBALS['hepsiburada_json_request']['url'], 'https://listing-external-sit.hepsiburada.com/listings/merchantid/test-merchant/inventory-uploads/id/inventory%201') === 0, 'Hepsiburada inventory upload status endpoint failed.');
+$hepsiburada->responses = array(
+    array('data' => array('success' => false, 'code' => 4000, 'message' => 'Tracking id not found', 'data' => array())),
+    array('data' => array('status' => 'Completed')),
+);
+$hb_inventory_fallback = $hepsiburada->get_batch_request_result($hb_test_supplier, 'inventory-2');
+check($hb_inventory_fallback['status'] === 'Completed' && strpos($GLOBALS['hepsiburada_json_request']['url'], '/inventory-uploads/id/inventory-2') !== false, 'Hepsiburada tracking miss did not fall back to inventory upload status.');
 
 $hepsiburada->responses = array(
     array('data' => array('data' => array('attributes' => array(array('id' => 'material', 'name' => 'Materyal', 'mandatory' => true, 'type' => 'enum'), array('id' => 'package-front', 'name' => 'Paket Görseli (ön)', 'mandatory' => true, 'type' => 'string')), 'variantAttributes' => array(array('id' => 'color', 'name' => 'Renk', 'mandatory' => false, 'type' => 'string'))))),

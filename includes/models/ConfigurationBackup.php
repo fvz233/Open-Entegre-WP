@@ -8,7 +8,7 @@ class ConfigurationBackup
 {
     private const MARKETPLACES = array('trendyol', 'n11', 'pazarama', 'ciceksepeti', 'amazon', 'pttavm', 'hepsiburada');
     private const SUPPLIER_FIELDS = array('name', 'marketplace_key', 'active', 'commission_rate', 'color', 'api_key', 'api_secret', 'seller_id', 'amazon_refresh_token', 'ptt_rest_api_key', 'ptt_access_token', 'n11_shipment_template', 'hepsiburada_environment', 'hepsiburada_developer_username', 'hepsiburada_test_api_key', 'hepsiburada_test_api_secret', 'hepsiburada_test_seller_id');
-    private const SETTINGS_FIELDS = array('sync_stock', 'sync_price', 'sync_products', 'sync_orders', 'stock_automation_mode', 'schedule', 'interval_minutes');
+    private const SETTINGS_FIELDS = array('sync_stock', 'sync_price', 'manual_sync_price', 'sync_products', 'sync_orders', 'stock_automation_mode', 'schedule', 'interval_minutes');
     private const MAPPINGS = array(
         'categories' => 'multi_sync_category_mappings_%d',
         'categories_test' => 'multi_sync_category_mappings_%d_test',
@@ -113,7 +113,7 @@ class ConfigurationBackup
                 // Match Supplier and the adapter: only the exact value "test" selects the test environment.
                 $supplier['hepsiburada_environment'] = ($supplier['hepsiburada_environment'] ?? '') === 'test' ? 'test' : 'production';
                 $settings = $this->fields($entry['settings'], self::SETTINGS_FIELDS);
-                foreach (array('active', 'sync_stock', 'sync_price', 'sync_products', 'sync_orders') as $field) {
+                foreach (array('active', 'sync_stock', 'sync_price', 'manual_sync_price', 'sync_products', 'sync_orders') as $field) {
                     $value = $supplier[$field] ?? $settings[$field] ?? 0;
                     $this->require_valid(in_array((string) $value, array('0', '1'), true), 'Açık/kapalı ayarı geçersiz.');
                 }

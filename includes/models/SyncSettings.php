@@ -55,6 +55,7 @@ class SyncSettings
             'sync_stock' => isset($data['sync_stock']) ? (int) $data['sync_stock'] : 0,
             // Price/product auto sync has been removed from automation settings.
             'sync_price' => 0,
+            'manual_sync_price' => isset($data['manual_sync_price']) ? (int) ((bool) $data['manual_sync_price']) : 0,
             'sync_products' => 0,
             'sync_orders' => isset($data['sync_orders']) ? (int) $data['sync_orders'] : 0,
             'stock_automation_mode' => $stock_automation_mode,
@@ -67,7 +68,7 @@ class SyncSettings
                 $this->table_name,
                 $fields,
                 array('supplier_id' => $supplier_id),
-                array('%d', '%d', '%d', '%d', '%s', '%s', '%d'),
+                array('%d', '%d', '%d', '%d', '%d', '%s', '%s', '%d'),
                 array('%d')
             );
         } else {
@@ -75,7 +76,7 @@ class SyncSettings
             $result = $wpdb->insert(
                 $this->table_name,
                 $fields,
-                array('%d', '%d', '%d', '%d', '%s', '%s', '%d', '%d')
+                array('%d', '%d', '%d', '%d', '%d', '%s', '%s', '%d', '%d')
             );
         }
 

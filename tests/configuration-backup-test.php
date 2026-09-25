@@ -83,7 +83,7 @@ namespace {
     $options = array();
     $terms = array('product_cat' => array(10 => (object) array('term_id' => 10, 'slug' => 'elbise')), 'product_brand' => array(20 => (object) array('term_id' => 20, 'slug' => 'marka')));
     $wpdb->suppliers[1] = array('id' => 1, 'name' => 'Hepsiburada', 'marketplace_key' => 'hepsiburada', 'api_key' => 'key', 'api_secret' => 'secret\\with"quotes', 'hepsiburada_test_api_key' => 'test-key', 'hepsiburada_environment' => 'test', 'active' => '1', 'commission_rate' => '5', 'created_at' => 'yesterday');
-    $wpdb->settings[1] = array('supplier_id' => 1, 'sync_stock' => '1', 'sync_orders' => '0', 'schedule' => 'hourly', 'stock_automation_mode' => 'scheduled', 'interval_minutes' => '5');
+    $wpdb->settings[1] = array('supplier_id' => 1, 'sync_stock' => '1', 'manual_sync_price' => '1', 'sync_orders' => '0', 'schedule' => 'hourly', 'stock_automation_mode' => 'scheduled', 'interval_minutes' => '5');
     $options['multi_sync_category_mappings_1'] = array(10 => array('category_id' => 'cat-prod', 'commission_rate' => 12, 'attributes' => array(array('attributeId' => 'size', 'attributeValueIds' => array('small')))));
     $options['multi_sync_category_mappings_1_test'] = array(10 => array('category_id' => 'cat-test'));
     $options['multi_sync_trendyol_category_mappings_1'] = array(10 => array('category_id' => 'cat-legacy'));
@@ -127,7 +127,7 @@ namespace {
     check($options['multi_sync_category_mappings_42_test'][110]['category_id'] === 'cat-test', 'Test mappings must remain isolated.');
     check($options['multi_sync_trendyol_category_mappings_42'][110]['category_id'] === 'cat-legacy', 'Legacy mappings must transfer.');
     check($options['multi_sync_brand_mappings_42']['product_brand:120']['brand_id'] === 'brand-prod', 'Brand IDs must be remapped.');
-    check($wpdb->settings[42]['schedule'] === 'hourly' && $wpdb->settings[42]['sync_price'] === 0, 'Settings must use existing normalization.');
+    check($wpdb->settings[42]['schedule'] === 'hourly' && $wpdb->settings[42]['sync_price'] === 0 && $wpdb->settings[42]['manual_sync_price'] === 1, 'Manual price preference must round trip without enabling automatic price sync.');
     check($options['unrelated_option'] === 'keep', 'Unrelated options must remain untouched.');
     check(!is_wp_error($service->import($backup)) && count($wpdb->suppliers) === 1, 'Repeated imports must not duplicate suppliers.');
     $chosen = $duplicate_export;

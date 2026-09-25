@@ -226,6 +226,10 @@ $preview_groups = $preview_alias_method->invoke(null, array(
 ), array('dms006' => new FakeProduct()));
 check(count($preview_groups) === 1, 'Marketplace aliases created duplicate stock preview rows.');
 check($preview_groups[0]['selection_key'] === 'dms006' && $preview_groups[0]['woo_product'] instanceof FakeProduct, 'Stock preview lost the matched Woo SKU alias.');
+$match_identifier_method = new ReflectionMethod(StockSync::class, 'apply_marketplace_match_identifier');
+$match_identifier_method->setAccessible(true);
+$hb_match_payload = $match_identifier_method->invoke(null, 'hepsiburada', array('merchantSku' => 'HBV00000NE0QU'), array('sku' => 'SELLER-SKU', 'external_sku' => 'SELLER-SKU', 'external_product_id' => 'HBV00000NE0QU'));
+check($hb_match_payload['merchantSku'] === 'SELLER-SKU', 'Hepsiburada marketplace match sent hbSku instead of merchantSku.');
 
 $direct_preview_method = new ReflectionMethod(StockSync::class, 'build_direct_preview');
 $direct_preview_method->setAccessible(true);

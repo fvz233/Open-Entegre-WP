@@ -103,6 +103,8 @@ class StockSync
                 $product_skus,
                 array(
                     'log_enabled' => $log_enabled,
+                    'sync_stock' => $sync_stock,
+                    'sync_price' => $sync_price,
                 )
             );
         }
@@ -659,6 +661,9 @@ class StockSync
             $log_enabled = (bool) $options['log_enabled'];
         }
 
+        $sync_stock = !isset($options['sync_stock']) || (bool) $options['sync_stock'];
+        $sync_price = isset($options['sync_price']) ? (bool) $options['sync_price'] : false;
+
         $marketplace_key = '';
         if (is_object($supplier) && !empty($supplier->marketplace_key)) {
             $marketplace_key = sanitize_key((string) $supplier->marketplace_key);
@@ -742,11 +747,12 @@ class StockSync
                 continue;
             }
 
-            $payload_item = $adapter->build_price_inventory_item_from_product($product, true, false);
+            $payload_item = $adapter->build_price_inventory_item_from_product($product, $sync_stock, $sync_price);
             if ($payload_item === null || !is_array($payload_item)) {
                 continue;
             }
 
+            $payload_item = self::apply_marketplace_match_identifier($marketplace_key, $payload_item, $sku_map_result[$sku_key]);
             $items[] = $payload_item;
         }
 
@@ -965,6 +971,15 @@ class StockSync
         }
 
         return strtolower($normalized);
+    }
+
+    private static function apply_marketplace_match_identifier($marketplace_key, $payload_item, $marketplace_product)
+    {
+        if ($marketplace_key === 'hepsiburada' && is_array($payload_item) && is_array($marketplace_product)) {
+            $merchant_sku = trim((string) ($marketplace_product['external_sku'] ?? $marketplace_product['sku'] ?? ''));
+            if ($merchant_sku !== '') $payload_item['merchantSku'] = $merchant_sku;
+        }
+        return $payload_item;
     }
 
     private static function sanitize_stock_mode($stock_mode)

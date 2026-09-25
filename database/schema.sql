@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS {$wpdb->prefix}multi_sync_settings (
     supplier_id bigint(20) NOT NULL,
     sync_stock boolean DEFAULT 0,
     sync_price boolean DEFAULT 0,
+    manual_sync_price boolean DEFAULT 0,
     sync_products boolean DEFAULT 0,
     sync_orders boolean DEFAULT 0,
     stock_automation_mode varchar(30) DEFAULT 'scheduled', -- 'scheduled', 'event_driven'

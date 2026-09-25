@@ -416,19 +416,25 @@ class HepsiburadaMarketplace extends BaseMarketplace
     {
         if (!$product || !is_callable(array($product, 'get_sku'))) return null;
         $sku = is_callable(array($product, 'get_meta')) ? trim((string) $product->get_meta('_multi_sync_external_sku', true)) : '';
+        if ($sku === '' && is_callable(array($product, 'get_meta'))) {
+            $sku = trim((string) $product->get_meta('_multi_sync_hepsiburada_sku', true));
+        }
         if ($sku === '') $sku = trim((string) $product->get_sku());
         if ($sku === '') return null;
 
         $item = array('merchantSku' => $this->stock_code($sku));
-        if ($sync_stock) $item['availableStock'] = max(0, (int) $product->get_stock_quantity());
-        if ($sync_price) {
-            $regular_raw = is_numeric($product->get_regular_price()) ? (float) $product->get_regular_price() : 0.0;
-            $sale_raw = is_callable(array($product, 'get_sale_price')) ? $product->get_sale_price() : '';
-            $price_raw = is_numeric($sale_raw) && (float) $sale_raw > 0 ? (float) $sale_raw : $regular_raw;
-            $price = $this->apply_product_commission($price_raw, $product, $commission_rate);
-            if ($price <= 0) return null;
-            $item['price'] = number_format($price, 2, '.', '');
-        }
+
+        // Hepsiburada /inventory-uploads XML schema requires both Price and AvailableStock in every <listing> element.
+        // Even when synchronizing only stock or only price, both must be supplied with valid values.
+        $item['availableStock'] = max(0, (int) $product->get_stock_quantity());
+
+        $regular_raw = is_numeric($product->get_regular_price()) ? (float) $product->get_regular_price() : 0.0;
+        $sale_raw = is_callable(array($product, 'get_sale_price')) ? $product->get_sale_price() : '';
+        $price_raw = is_numeric($sale_raw) && (float) $sale_raw > 0 ? (float) $sale_raw : $regular_raw;
+        $price = $this->apply_product_commission($price_raw, $product, $commission_rate);
+        if ($price <= 0) return null;
+        $item['price'] = number_format($price, 2, '.', '');
+
         return $item;
     }
 
@@ -440,10 +446,69 @@ class HepsiburadaMarketplace extends BaseMarketplace
 
         $body = '<?xml version="1.0" encoding="UTF-8"?><listings>';
         foreach ((array) $items as $item) {
-            $body .= '<listing><MerchantSku>' . esc_html((string) ($item['merchantSku'] ?? '')) . '</MerchantSku>';
-            if (array_key_exists('price', $item)) $body .= '<Price>' . esc_html(str_replace('.', ',', (string) $item['price'])) . '</Price>';
-            if (array_key_exists('availableStock', $item)) $body .= '<AvailableStock>' . (int) $item['availableStock'] . '</AvailableStock>';
-            $body .= '</listing>';
+            $merchant_sku = (string) ($item['merchantSku'] ?? '');
+            if ($merchant_sku === '') continue;
+
+            $price_val = '';
+            if (isset($item['price']) && $item['price'] !== '') {
+                $price_val = str_replace('.', ',', (string) $item['price']);
+            }
+
+            $stock_val = isset($item['availableStock']) && $item['availableStock'] !== ''
+                ? (int) $item['availableStock']
+                : null;
+
+            // Hepsiburada XML schema requires both Price and AvailableStock.
+            // If either is missing, attempt to resolve from WooCommerce product.
+            if ($price_val === '' || $stock_val === null) {
+                $pid = wc_get_product_id_by_sku($merchant_sku);
+                if (!$pid && function_exists('get_posts')) {
+                    $matching_posts = get_posts(array(
+                        'post_type' => array('product', 'product_variation'),
+                        'meta_key' => '_multi_sync_external_sku',
+                        'meta_value' => $merchant_sku,
+                        'posts_per_page' => 1,
+                        'fields' => 'ids',
+                    ));
+                    if (!empty($matching_posts)) {
+                        $pid = $matching_posts[0];
+                    }
+                }
+                if ($pid && function_exists('wc_get_product')) {
+                    $prod = wc_get_product($pid);
+                    if ($prod) {
+                        if ($price_val === '') {
+                            $reg = is_numeric($prod->get_regular_price()) ? (float) $prod->get_regular_price() : 0.0;
+                            $sal = is_callable(array($prod, 'get_sale_price')) ? $prod->get_sale_price() : '';
+                            $pr = is_numeric($sal) && (float) $sal > 0 ? (float) $sal : $reg;
+                            $pr = $this->apply_product_commission($pr, $prod, null);
+                            if ($pr > 0) {
+                                $price_val = number_format($pr, 2, ',', '');
+                            }
+                        }
+                        if ($stock_val === null) {
+                            $stock_val = max(0, (int) $prod->get_stock_quantity());
+                        }
+                    }
+                }
+            }
+
+            if ($price_val === '') {
+                return new \WP_Error(
+                    'multi_sync_hepsiburada_missing_price',
+                    sprintf('Hepsiburada stok/fiyat XML gonderiminde Price zorunludur. %s icin fiyat belirlenemedi.', $merchant_sku)
+                );
+            }
+            if ($stock_val === null) {
+                return new \WP_Error(
+                    'multi_sync_hepsiburada_missing_stock',
+                    sprintf('Hepsiburada stok/fiyat XML gonderiminde AvailableStock zorunludur. %s icin stok belirlenemedi.', $merchant_sku)
+                );
+            }
+
+            $body .= '<listing><MerchantSku>' . esc_html($merchant_sku) . '</MerchantSku>';
+            $body .= '<Price>' . esc_html($price_val) . '</Price>';
+            $body .= '<AvailableStock>' . (int) $stock_val . '</AvailableStock></listing>';
         }
         $body .= '</listings>';
 
@@ -471,8 +536,38 @@ class HepsiburadaMarketplace extends BaseMarketplace
         $this->store_http_debug($supplier, $debug_entry);
         if (in_array($code, array(401, 403), true)) return new \WP_Error('multi_sync_hepsiburada_forbidden', 'Hepsiburada yetkilendirmesi reddedildi. Secili ortam kullanici adi/sifre, Merchant ID ve Merchant Panel entegrator servis yetkisini kontrol edin.', array('code' => $code, 'body' => $raw));
         if ($code >= 400) return new \WP_Error('multi_sync_hepsiburada_inventory_error', sprintf('Hepsiburada stok/fiyat gonderimi basarisiz oldu (%d): %s', $code, $raw), array('code' => $code, 'body' => $raw));
+
         $data = json_decode($raw, true);
-        return is_array($data) ? $data : array('body' => $raw);
+        if (!is_array($data)) {
+            return new \WP_Error('multi_sync_hepsiburada_inventory_invalid_response', 'Hepsiburada stok/fiyat gonderimi gecersiz yanit dondu: ' . $raw, array('code' => $code, 'body' => $raw));
+        }
+
+        // Hepsiburada returns HTTP 200 with "errors" array if XML validation or payload fails.
+        if (!empty($data['errors']) && is_array($data['errors'])) {
+            $error_messages = array();
+            foreach ($data['errors'] as $err) {
+                if (is_array($err) && !empty($err['message'])) {
+                    $error_messages[] = $err['message'];
+                } elseif (is_string($err)) {
+                    $error_messages[] = $err;
+                }
+            }
+            $error_str = $error_messages ? implode('; ', $error_messages) : $raw;
+            return new \WP_Error('multi_sync_hepsiburada_inventory_schema_error', 'Hepsiburada stok/fiyat gonderimi reddedildi: ' . $error_str, array('code' => $code, 'data' => $data));
+        }
+
+        if (empty($data['id']) && !empty($data['data']['id'])) {
+            $data['id'] = $data['data']['id'];
+        }
+        if (empty($data['trackingId']) && !empty($data['data']['trackingId'])) {
+            $data['trackingId'] = $data['data']['trackingId'];
+        }
+
+        if (empty($data['id']) && empty($data['trackingId']) && empty($data['success'])) {
+            return new \WP_Error('multi_sync_hepsiburada_tracking_missing', 'Hepsiburada envanter gonderiminde upload ID donmedi: ' . $raw, array('code' => $code, 'body' => $raw));
+        }
+
+        return $data;
     }
     public function get_batch_request_result($supplier, $batch_request_id)
     {
@@ -486,13 +581,34 @@ class HepsiburadaMarketplace extends BaseMarketplace
         do {
             $url = $this->api_base($supplier) . '/products/status/' . rawurlencode($batch_request_id) . '?' . http_build_query(array('page' => $page, 'size' => 100, 'version' => 1));
             $response = $this->request_json('GET', $url, $supplier);
-            if (is_wp_error($response)) return $response;
+            if (is_wp_error($response)) {
+                $error_data = $response->get_error_data();
+                if ($page === 0 && is_array($error_data) && in_array((int) ($error_data['code'] ?? 0), array(400, 404), true)) {
+                    return $this->get_inventory_upload_result($supplier, $batch_request_id);
+                }
+                return $response;
+            }
             $data = isset($response['data']) && is_array($response['data']) ? $response['data'] : array();
+            if ($page === 0 && !empty($data) && empty($data['success'])
+                && ((int) ($data['code'] ?? 0) === 4000 || stripos((string) ($data['message'] ?? ''), 'tracking id not found') !== false)) {
+                return $this->get_inventory_upload_result($supplier, $batch_request_id);
+            }
             if ($result === null) $result = $data;
             $items = array_merge($items, $this->extract_list($data, array('data')));
             $page++;
         } while ($page < min(10, max(1, (int) ($data['totalPages'] ?? 1))));
         if ($items) $result['data'] = $items;
         return $result ?: array();
+    }
+
+    public function get_inventory_upload_result($supplier, $inventory_upload_id)
+    {
+        $check = $this->validate_credentials($supplier);
+        if (is_wp_error($check)) return $check;
+        $inventory_upload_id = trim((string) $inventory_upload_id);
+        if ($inventory_upload_id === '') return new \WP_Error('multi_sync_hepsiburada_inventory_id_required', 'Hepsiburada inventory upload ID zorunludur.');
+        $url = $this->listing_api_base($supplier) . '/listings/merchantid/' . rawurlencode($this->get_seller_id($supplier)) . '/inventory-uploads/id/' . rawurlencode($inventory_upload_id);
+        $response = $this->request_json('GET', $url, $supplier);
+        return is_wp_error($response) ? $response : ($response['data'] ?? array());
     }
 }

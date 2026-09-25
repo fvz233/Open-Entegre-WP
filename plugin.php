@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Open Entegre
  * Description: WooCommerce icin birden fazla dis pazar yerine baglanabilen esnek senkronizasyon eklentisi.
- * Version: 1.0.108
+ * Version: 1.0.111
  * Author: Fevzi Demirtaş
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -60,8 +60,8 @@ function multi_sync_redact_debug_value($value, $key = '')
     return $value;
 }
 
-define('MULTI_SYNC_VERSION', '1.0.108');
-define('MULTI_SYNC_SCHEMA_VERSION', '20260812-1');
+define('MULTI_SYNC_VERSION', '1.0.111');
+define('MULTI_SYNC_SCHEMA_VERSION', '20260925-1');
 define('MULTI_SYNC_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('MULTI_SYNC_PLUGIN_URL', plugin_dir_url(__FILE__));
 
@@ -225,6 +225,8 @@ function multi_sync_activate()
         multi_sync_ensure_settings_interval_column();
         // Ensure stock automation mode column exists
         multi_sync_ensure_settings_stock_automation_mode_column();
+        // Ensure manual price preference column exists
+        multi_sync_ensure_settings_manual_price_column();
         // Ensure queue/history tables and settings exist
         multi_sync_ensure_queue_tables();
         multi_sync_ensure_marketplace_questions_table();
@@ -405,6 +407,15 @@ function multi_sync_ensure_settings_stock_automation_mode_column()
         } else {
             multi_sync_debug_log('Added stock_automation_mode column to ' . $table_name);
         }
+    }
+}
+
+function multi_sync_ensure_settings_manual_price_column()
+{
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'multi_sync_settings';
+    if (!$wpdb->get_var($wpdb->prepare("SHOW COLUMNS FROM {$table_name} LIKE %s", 'manual_sync_price'))) {
+        $wpdb->query("ALTER TABLE {$table_name} ADD COLUMN manual_sync_price TINYINT(1) DEFAULT 0 AFTER sync_price");
     }
 }
 
