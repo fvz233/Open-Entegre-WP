@@ -401,13 +401,15 @@ abstract class BaseMarketplace implements MarketplaceInterface
             $send_method = strtoupper((string) $entry['request']['method']);
             if (in_array($send_method, array('POST', 'PUT', 'PATCH'), true)) {
                 $send_path = strtolower((string) parse_url((string) ($entry['request']['url'] ?? ''), PHP_URL_PATH));
+                $send_target = $send_path . ' ' . strtolower((string) ($entry['operation'] ?? ''));
                 if ($send_path !== '' && (
-                    strpos($send_path, '/products') !== false
-                    || strpos($send_path, 'product-create') !== false
-                    || strpos($send_path, '/listings') !== false
-                    || strpos($send_path, 'products/import') !== false
-                    || strpos($send_path, 'price-and-inventory') !== false
-                    || strpos($send_path, 'price-and-stock') !== false
+                    strpos($send_target, '/products') !== false
+                    || strpos($send_target, 'product-create') !== false
+                    || strpos($send_target, '/listings') !== false
+                    || strpos($send_target, 'products/import') !== false
+                    || strpos($send_target, 'inventory') !== false
+                    || strpos($send_target, 'price') !== false
+                    || strpos($send_target, 'stock') !== false
                 )) {
                     $is_product_send = true;
                 }

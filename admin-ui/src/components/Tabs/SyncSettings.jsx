@@ -157,6 +157,57 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
         handleManualSync('order', items);
     };
 
+    const showStockPriceJobDebug = async (job) => {
+        let entry = null;
+        try {
+            const res = await api.getMarketplaceHttpDebug(supplier.id, supplier.marketplace_key || '', { limit: 5 });
+            const history = Array.isArray(res.data?.history) ? res.data.history : [];
+            const jobStartedAt = new Date(String(job.created_at || '').replace(' ', 'T')).getTime();
+            entry = history.find(candidate => {
+                const debugAt = new Date(String(candidate?.timestamp || '').replace(' ', 'T')).getTime();
+                return Number.isNaN(jobStartedAt) || (!Number.isNaN(debugAt) && debugAt >= jobStartedAt);
+            }) || null;
+        } catch (e) {
+            console.error('Stok/fiyat debug yükleme hatası:', e);
+        }
+
+        setPublishDebugEntry(entry || {
+            timestamp: job.finished_at || job.updated_at || job.created_at,
+            operation: `stock_push job #${job.id}`,
+            request: { job_id: job.id, status: job.status, payload: job.payload || {} },
+            response: { error: job.error_message || '', summary: job.summary || {} },
+        });
+        setPublishPopup(true);
+    };
+
+    const watchStockPriceJob = async (jobId) => {
+        for (let attempt = 0; attempt < 45; attempt++) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            try {
+                const res = await api.getJob(jobId);
+                const job = res.data?.job;
+                if (!job) continue;
+
+                const status = String(job.status || '');
+                if (!['completed', 'failed', 'cancelled', 'waiting_remote'].includes(status)) continue;
+
+                await showStockPriceJobDebug(job);
+                if (status === 'failed' || status === 'cancelled') {
+                    setFeedback({ type: 'error', message: job.error_message || `Stok/fiyat işi ${status}. İş #${jobId}` });
+                } else if (status === 'waiting_remote') {
+                    setFeedback({ type: 'success', message: `Stok/fiyat isteği gönderildi, pazar yeri sonucu bekleniyor. İş #${jobId}` });
+                } else {
+                    setFeedback({ type: 'success', message: `Stok/fiyat gönderimi tamamlandı. İş #${jobId}` });
+                }
+                return;
+            } catch (e) {
+                console.error('Stok/fiyat iş durumu alınamadı:', e);
+            }
+        }
+
+        setFeedback({ type: 'error', message: `İş #${jobId} hâlâ kuyrukta. Durumu Senkron Merkezi'nden kontrol edin.` });
+    };
+
     const handleStockPriceSync = async (selectedItems = []) => {
         setFeedback(null);
         setLoading(true);
@@ -179,6 +230,7 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
                     setFeedback({ type: 'success', message: `Şüpheli fiyat düşüşü bulundu. İş onay bekliyor. İş #${jobId}` });
                 } else if (queued) {
                     setFeedback({ type: 'success', message: `Stok/fiyat gönderimi kuyruğa alındı. İş #${jobId}` });
+                    watchStockPriceJob(jobId);
                 } else {
                     setFeedback({ type: 'success', message: res.data.message || 'Stok/fiyat işlemi tamamlandı.' });
                 }
@@ -188,6 +240,13 @@ function SyncSettings({ supplier, onSupplierUpdate }) {
         } catch (e) {
             console.error(e);
             setFeedback({ type: 'error', message: e.response?.data?.message || e.message || 'Stok/fiyat gönderim hatası.' });
+            setPublishDebugEntry({
+                timestamp: new Date().toISOString(),
+                operation: 'Stok/fiyat gönderimi başlatılamadı',
+                request: { supplier_id: supplier.id, selected_items: selectedItems, sync_stock: manualSyncStock, sync_price: manualSyncPrice },
+                response: e.response?.data || { error: e.message || 'Bilinmeyen hata' },
+            });
+            setPublishPopup(true);
         }
         setLoading(false);
     };

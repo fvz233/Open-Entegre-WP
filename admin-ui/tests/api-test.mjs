@@ -96,9 +96,15 @@ const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8
 const settingsSource = readFileSync(new URL('../src/components/Tabs/SyncSettings.jsx', import.meta.url), 'utf8');
 const categoryMappingSource = readFileSync(new URL('../src/components/MarketplaceCategoryMapping.jsx', import.meta.url), 'utf8');
 const productSelectorSource = readFileSync(new URL('../src/components/ProductSelectorModal.jsx', import.meta.url), 'utf8');
+const baseMarketplaceSource = readFileSync(new URL('../../includes/marketplaces/BaseMarketplace.php', import.meta.url), 'utf8');
 assert.match(appSource, /Eşleştirmeler/);
 assert.match(appSource, /questionMarketplaces = new Set\(\['trendyol'\]\)/);
 assert.doesNotMatch(settingsSource, /TrendyolCategoryMapping/);
+assert.match(settingsSource, /watchStockPriceJob\(jobId\)/);
+assert.match(settingsSource, /\['completed', 'failed', 'cancelled', 'waiting_remote'\]/);
+assert.match(settingsSource, /setPublishPopup\(true\)/);
+assert.match(baseMarketplaceSource, /strpos\(\$send_target, 'stock'\)/);
+assert.match(baseMarketplaceSource, /strpos\(\$send_target, 'price'\)/);
 assert.match(categoryMappingSource, /onClick=\{\(\) => selectWooCategory\(categoryId\)\}[^>]*>Düzenle<\/button>/);
 assert.match(categoryMappingSource, /attribute\.required && 'zorunlu'/);
 assert.match(categoryMappingSource, /attribute\.slicer \|\| attribute\.varianter/);
