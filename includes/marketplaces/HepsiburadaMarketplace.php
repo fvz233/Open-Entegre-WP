@@ -233,7 +233,7 @@ class HepsiburadaMarketplace extends BaseMarketplace
         $description = $source->get_description() ?: $source->get_short_description() ?: $source->get_name();
         $payload = array_merge(array(
             'merchantSku' => $sku,
-            'Barcode' => $sku,
+            'Barcode' => 'MSLSTR-' . $sku,
             'VaryantGroupID' => $group,
             'UrunAdi' => mb_substr($this->product_export_name($product, $parent), 0, 200),
             'UrunAciklamasi' => wp_strip_all_tags($description),
