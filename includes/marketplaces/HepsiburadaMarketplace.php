@@ -193,12 +193,6 @@ class HepsiburadaMarketplace extends BaseMarketplace
             return $stored !== '' ? $stored : $fallback;
         };
         $sku = $this->stock_code($value('sku', $product->get_sku()));
-        $barcode = is_callable(array($product, 'get_global_unique_id'))
-            ? trim((string) $product->get_global_unique_id())
-            : trim((string) $product->get_meta('_global_unique_id', true));
-        if (isset($overrides['barcode']) && trim((string) $overrides['barcode']) !== '') {
-            $barcode = trim((string) $overrides['barcode']);
-        }
         $group = $this->stock_code($value('variant_group_id', $parent ? $parent->get_sku() : $sku));
         $category = $value('category_id', $category_mapping['category_id'] ?? '');
         $brand = $value('brand', $category_mapping['brand_name'] ?? '');
@@ -239,6 +233,7 @@ class HepsiburadaMarketplace extends BaseMarketplace
         $description = $source->get_description() ?: $source->get_short_description() ?: $source->get_name();
         $payload = array_merge(array(
             'merchantSku' => $sku,
+            'Barcode' => $sku,
             'VaryantGroupID' => $group,
             'UrunAdi' => mb_substr($this->product_export_name($product, $parent), 0, 200),
             'UrunAciklamasi' => wp_strip_all_tags($description),
@@ -246,7 +241,6 @@ class HepsiburadaMarketplace extends BaseMarketplace
             'price' => number_format($price, 2, ',', ''),
             'stock' => (string) max(0, (int) $product->get_stock_quantity()),
         ), $attributes);
-        if ($barcode !== '') $payload['Barcode'] = $barcode;
         if (is_callable(array($source, 'get_weight')) && $source->get_weight() !== '') $payload['kg'] = (string) $source->get_weight();
         foreach ($images as $index => $image) $payload['Image' . ($index + 1)] = $image;
         return array('categoryId' => (int) $category, 'attributes' => $payload);

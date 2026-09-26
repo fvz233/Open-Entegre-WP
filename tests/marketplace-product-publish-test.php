@@ -107,11 +107,6 @@ class HepsiburadaParentProduct extends MarketplacePublishProduct
     public function get_id() { return 21; }
 }
 
-class HepsiburadaNoBarcodeProduct extends MarketplacePublishProduct
-{
-    public function get_global_unique_id() { return ''; }
-}
-
 class HepsiburadaVariationProduct extends MarketplacePublishProduct
 {
     public function is_type($type) { return $type === 'variation'; }
@@ -223,13 +218,10 @@ $hepsiburada_mapping = array(
 );
 $hb_item = $hepsiburada->build_product_item_from_product($product, $hepsiburada_mapping);
 check(!is_wp_error($hb_item) && $hb_item['attributes']['merchantSku'] === '8690000000001', 'Hepsiburada SKU mapping failed.');
-check($hb_item['attributes']['Barcode'] === '9780201379624', 'Hepsiburada barcode was not read from the WooCommerce GTIN, UPC, EAN or ISBN field.');
+check($hb_item['attributes']['Barcode'] === '8690000000001', 'Hepsiburada barcode was not copied from the stock code.');
 check($hb_item['attributes']['price'] === '111,00', 'Hepsiburada category commission failed.');
 check($hb_item['attributes']['material'] === 'Çelik', 'Hepsiburada enum value mapping failed.');
 check($hb_item['attributes']['Image1'] === 'http://example.test/7.jpg', 'Hepsiburada HTTP image mapping failed.');
-$hb_item_without_barcode = $hepsiburada->build_product_item_from_product(new HepsiburadaNoBarcodeProduct(), $hepsiburada_mapping);
-check(!is_wp_error($hb_item_without_barcode) && !isset($hb_item_without_barcode['attributes']['Barcode']), 'Hepsiburada empty barcode was not omitted.');
-
 $hb_custom_mapping = array(
     'category_id' => '123',
     'brand_name' => 'Meşale',
@@ -253,6 +245,7 @@ $hb_variation_mapping = array(
 );
 $hb_variation = $hepsiburada->build_product_item_from_product(new HepsiburadaVariationProduct(), $hb_variation_mapping);
 check(!is_wp_error($hb_variation) && $hb_variation['attributes']['merchantSku'] === 'VARIANT1' && $hb_variation['attributes']['VaryantGroupID'] === 'PARENT1', 'Hepsiburada variation grouping failed.');
+check($hb_variation['attributes']['Barcode'] === 'VARIANT1', 'Hepsiburada variation barcode was not copied from the stock code.');
 check($hb_variation['attributes']['color'] === 'Osmanlı', 'Hepsiburada variation color failed.');
 
 $multipart = $hepsiburada->multipart(array(array('categoryId' => 123, 'merchant' => 'merchant-1', 'attributes' => $hb_item['attributes'])));
