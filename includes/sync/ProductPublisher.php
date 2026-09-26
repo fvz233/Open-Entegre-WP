@@ -79,7 +79,7 @@ class ProductPublisher
                 'variation_attribute_options' => array_keys($variation_attributes),
                 'variation_attribute_labels' => $variation_attribute_labels,
                 'variation_target_options' => $variation_target_options,
-                'attribute_fields' => $this->attribute_fields($mapping),
+                'attribute_fields' => $this->attribute_fields($mapping, $context['adapter']->get_key()),
             );
         }
 
@@ -662,7 +662,7 @@ class ProductPublisher
         return $mapping;
     }
 
-    private function attribute_fields($mapping)
+    private function attribute_fields($mapping, $marketplace_key = '')
     {
         $matched = array();
         foreach ((array) ($mapping['attributes'] ?? array()) as $attribute) {
@@ -689,6 +689,7 @@ class ProductPublisher
                 'options' => array_values((array) ($definition['values'] ?? array())),
                 'matched_value' => $value,
                 'matched_label' => $label,
+                'allow_custom' => !empty($definition['allow_custom']) || $marketplace_key === 'hepsiburada',
             );
         }
         return $fields;

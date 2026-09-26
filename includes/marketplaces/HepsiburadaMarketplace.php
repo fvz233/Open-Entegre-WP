@@ -166,7 +166,7 @@ class HepsiburadaMarketplace extends BaseMarketplace
                 'required' => !empty($row['mandatory']) && strpos($this->normalized_name($row['name'] ?? ''), 'paket gorseli') !== 0,
                 'slicer' => false,
                 'varianter' => !empty($row['variant']) || !empty($row['variantable']) || !empty($row['isVariant']),
-                'allow_custom' => empty($values),
+                'allow_custom' => true,
                 'values' => $values,
             );
         }
@@ -223,7 +223,7 @@ class HepsiburadaMarketplace extends BaseMarketplace
             if ($input === '' && $is_desi) $input = $this->get_product_desi($product);
             $resolved = $this->attribute_value($input, (array) ($definition['values'] ?? array()));
             if ($resolved !== '') $attributes[$id] = $resolved;
-            elseif ((!empty($definition['required']) && strpos($this->normalized_name($definition['name'] ?? ''), 'paket gorseli') !== 0) || ($parent && $is_color)) $missing[] = array('key' => 'attribute_' . $id, 'label' => (string) ($definition['name'] ?? $id), 'type' => !empty($definition['values']) ? 'select' : 'text', 'options' => (array) ($definition['values'] ?? array()), 'suggested_value' => $is_color ? $color : '');
+            elseif ((!empty($definition['required']) && strpos($this->normalized_name($definition['name'] ?? ''), 'paket gorseli') !== 0) || ($parent && $is_color)) $missing[] = array('key' => 'attribute_' . $id, 'label' => (string) ($definition['name'] ?? $id), 'type' => !empty($definition['values']) ? 'select' : 'text', 'options' => (array) ($definition['values'] ?? array()), 'suggested_value' => $is_color ? $color : '', 'allow_custom' => true);
         }
 
         $regular = $this->apply_product_commission($product->get_regular_price(), $product, $category_mapping['commission_rate'] ?? null);

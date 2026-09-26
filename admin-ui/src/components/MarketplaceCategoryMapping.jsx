@@ -24,6 +24,7 @@ function MarketplaceCategoryMapping({ supplier, onSupplierUpdate }) {
     const [manualBrandName, setManualBrandName] = useState('');
     const [commissionRate, setCommissionRate] = useState('');
     const [n11ShipmentTemplate, setN11ShipmentTemplate] = useState(supplier.n11_shipment_template || '');
+    const [customAttributes, setCustomAttributes] = useState({});
     const [feedback, setFeedback] = useState(null);
 
     const load = async () => {
@@ -62,14 +63,25 @@ function MarketplaceCategoryMapping({ supplier, onSupplierUpdate }) {
             setTrendyolCategory(null);
             setAttributes([]);
             setValues({});
+            setCustomAttributes({});
             return;
         }
         setTrendyolCategory({ id: mapping.category_id, path: mapping.category_name });
-        setAttributes(mapping.attribute_definitions || []);
-        setValues(Object.fromEntries((mapping.attributes || []).map(attribute => [
+        const defs = mapping.attribute_definitions || [];
+        setAttributes(defs);
+        const loadedValues = Object.fromEntries((mapping.attributes || []).map(attribute => [
             attribute.attributeId,
             attribute.attributeValueIds?.[0] ?? attribute.attributeValue ?? '',
-        ])));
+        ]));
+        setValues(loadedValues);
+        const customMap = {};
+        defs.forEach(attr => {
+            const val = loadedValues[attr.id];
+            if (val && attr.values?.length && !attr.values.some(v => String(v.id) === String(val))) {
+                customMap[attr.id] = true;
+            }
+        });
+        setCustomAttributes(customMap);
     };
 
     const search = async () => {
@@ -89,6 +101,7 @@ function MarketplaceCategoryMapping({ supplier, onSupplierUpdate }) {
         if (!category) {
             setTrendyolCategory(null);
             setAttributes([]);
+            setCustomAttributes({});
             return;
         }
         setTrendyolCategory(category);
@@ -98,6 +111,7 @@ function MarketplaceCategoryMapping({ supplier, onSupplierUpdate }) {
             const res = await api.getMarketplaceCategoryAttributes(supplier.id, category.id);
             setAttributes(res.data?.items || []);
             setValues({});
+            setCustomAttributes({});
         } catch (e) {
             setFeedback({ type: 'error', message: e.response?.data?.message || 'Kategori nitelikleri alınamadı.' });
         }
@@ -108,7 +122,8 @@ function MarketplaceCategoryMapping({ supplier, onSupplierUpdate }) {
         if (!wooCategoryId || !trendyolCategory) return;
         const payload = attributes.filter(attribute => values[attribute.id]).map(attribute => {
             const value = values[attribute.id];
-            return attribute.values.length
+            const isKnownOption = (attribute.values || []).some(v => String(v.id) === String(value));
+            return isKnownOption
                 ? { attributeId: attribute.id, attributeValueIds: [value] }
                 : { attributeId: attribute.id, attributeValue: value };
         });
@@ -127,6 +142,7 @@ function MarketplaceCategoryMapping({ supplier, onSupplierUpdate }) {
             setTrendyolCategory(null);
             setAttributes([]);
             setValues({});
+            setCustomAttributes({});
             setCommissionRate('');
             setFeedback({ type: 'success', message: 'Kategori eşlemesi kaydedildi.' });
         } catch (e) {
@@ -224,27 +240,51 @@ function MarketplaceCategoryMapping({ supplier, onSupplierUpdate }) {
                         {results.map(category => <option key={category.id} value={category.id}>{category.path}</option>)}
                     </select>
                 )}
-                {attributes.map(attribute => (
-                    <label key={attribute.id}>
-                        {attribute.name} ({[
-                            attribute.required && 'zorunlu',
-                            (attribute.slicer || attribute.varianter) && 'varyasyon',
-                            !attribute.required && !attribute.slicer && !attribute.varianter && 'isteğe bağlı',
-                        ].filter(Boolean).join(', ')})
-                        {supplier.marketplace_key === 'n11' && attribute.name.trim().toLocaleLowerCase('tr-TR') === 'marka' ? (
-                            <small style={{ display: 'block' }}>WooCommerce marka adından alınır.</small>
-                        ) : attribute.values.length ? (
-                            <select value={values[attribute.id] || ''} onChange={e => setValues({ ...values, [attribute.id]: e.target.value })}>
-                                <option value="">Preview'da ürün bazında doldur</option>
-                                {attribute.values.map(value => <option key={value.id} value={value.id}>{value.name}</option>)}
-                            </select>
-                        ) : attribute.allow_custom ? (
-                            <input value={values[attribute.id] || ''} placeholder="Boşsa preview'da doldurulur" onChange={e => setValues({ ...values, [attribute.id]: e.target.value })} />
-                        ) : (
-                            <span style={{ color: '#b42318', display: 'block' }}>{marketplace} değer döndürmedi.</span>
-                        )}
-                    </label>
-                ))}
+                {attributes.map(attribute => {
+                    const isCustomAllowed = attribute.allow_custom || supplier.marketplace_key === 'hepsiburada';
+                    const isCustom = isCustomAllowed && (customAttributes[attribute.id] || (values[attribute.id] && attribute.values?.length > 0 && !attribute.values.some(v => String(v.id) === String(values[attribute.id]))));
+
+                    return (
+                        <label key={attribute.id} style={{ display: 'grid', gap: '4px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>
+                                    {attribute.name} ({[
+                                        attribute.required && 'zorunlu',
+                                        (attribute.slicer || attribute.varianter) && 'varyasyon',
+                                        !attribute.required && !attribute.slicer && !attribute.varianter && 'isteğe bağlı',
+                                    ].filter(Boolean).join(', ')})
+                                </span>
+                                {isCustomAllowed && attribute.values?.length > 0 && (
+                                    <button
+                                        type="button"
+                                        style={{ fontSize: '11px', cursor: 'pointer', background: 'none', border: 'none', color: '#2271b1', textDecoration: 'underline', padding: 0 }}
+                                        onClick={() => setCustomAttributes(prev => ({ ...prev, [attribute.id]: !isCustom }))}
+                                    >
+                                        {isCustom ? 'Listeden seç' : 'Listede yok mu? Elle girin'}
+                                    </button>
+                                )}
+                            </div>
+                            {supplier.marketplace_key === 'n11' && attribute.name.trim().toLocaleLowerCase('tr-TR') === 'marka' ? (
+                                <small style={{ display: 'block' }}>WooCommerce marka adından alınır.</small>
+                            ) : isCustom ? (
+                                <input
+                                    value={values[attribute.id] || ''}
+                                    placeholder="Özel değer girin (boşsa preview'da doldurulur)"
+                                    onChange={e => setValues({ ...values, [attribute.id]: e.target.value })}
+                                />
+                            ) : attribute.values.length ? (
+                                <select value={values[attribute.id] || ''} onChange={e => setValues({ ...values, [attribute.id]: e.target.value })}>
+                                    <option value="">Preview'da ürün bazında doldur</option>
+                                    {attribute.values.map(value => <option key={value.id} value={value.id}>{value.name}</option>)}
+                                </select>
+                            ) : attribute.allow_custom || isCustomAllowed ? (
+                                <input value={values[attribute.id] || ''} placeholder="Boşsa preview'da doldurulur" onChange={e => setValues({ ...values, [attribute.id]: e.target.value })} />
+                            ) : (
+                                <span style={{ color: '#b42318', display: 'block' }}>{marketplace} değer döndürmedi.</span>
+                            )}
+                        </label>
+                    );
+                })}
                 {attributes.length > 0 && <small>Boş bırakılan değer tüm kategoriye uygulanmaz; export preview'da ürün/varyasyon bazında istenir.</small>}
                 {trendyolCategory && (
                     <label>

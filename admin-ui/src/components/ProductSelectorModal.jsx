@@ -33,6 +33,7 @@ function ProductSelectorModal({
     const [commonVariationTarget, setCommonVariationTarget] = useState('');
     const [commonVariationApplied, setCommonVariationApplied] = useState(0);
     const [expandedProducts, setExpandedProducts] = useState(new Set());
+    const [customFieldKeys, setCustomFieldKeys] = useState({});
 
     useEffect(() => {
         fetchPreview();
@@ -151,19 +152,44 @@ function ProductSelectorModal({
         <div style={{ marginBottom: item.catalog_comparison ? '12px' : 0 }}>
             <strong style={{ display: 'block', marginBottom: '7px' }}>Özellikleri değiştir</strong>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 16px' }}>
-                {item.attribute_fields.map(field => (
-                    <label key={field.key} style={{ display: 'grid', gap: '4px', minWidth: '220px', fontSize: '12px' }}>
-                        {field.label}
-                        {field.type === 'select' ? (
-                            <select value={getPublishValue(item, field)} onChange={e => updatePublishValue(item, field.key, e.target.value)}>
-                                <option value="">{field.matched_label || '-'}</option>
-                                {(field.options || []).map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
-                            </select>
-                        ) : (
-                            <input value={getPublishValue(item, field)} placeholder={field.matched_label || ''} onChange={e => updatePublishValue(item, field.key, e.target.value)} />
-                        )}
-                    </label>
-                ))}
+                {item.attribute_fields.map(field => {
+                    const fieldId = `${itemKey(item)}:${field.key}`;
+                    const currentVal = getPublishValue(item, field);
+                    const isKnown = (field.options || []).some(option => String(option.id) === String(currentVal));
+                    const isCustomAllowed = field.allow_custom || supplier?.marketplace_key === 'hepsiburada';
+                    const isCustom = isCustomAllowed && (customFieldKeys[fieldId] || (currentVal !== '' && field.options?.length > 0 && !isKnown));
+
+                    return (
+                        <label key={field.key} style={{ display: 'grid', gap: '4px', minWidth: '220px', fontSize: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>{field.label}</span>
+                                {isCustomAllowed && field.options?.length > 0 && (
+                                    <button
+                                        type="button"
+                                        style={{ fontSize: '10px', cursor: 'pointer', background: 'none', border: 'none', color: '#2271b1', textDecoration: 'underline', padding: 0 }}
+                                        onClick={() => setCustomFieldKeys(prev => ({ ...prev, [fieldId]: !isCustom }))}
+                                    >
+                                        {isCustom ? 'Listeden seç' : 'Elle gir'}
+                                    </button>
+                                )}
+                            </div>
+                            {isCustom ? (
+                                <input
+                                    value={currentVal}
+                                    placeholder={field.matched_label || 'Özel değer girin'}
+                                    onChange={e => updatePublishValue(item, field.key, e.target.value)}
+                                />
+                            ) : field.type === 'select' ? (
+                                <select value={currentVal} onChange={e => updatePublishValue(item, field.key, e.target.value)}>
+                                    <option value="">{field.matched_label || '-'}</option>
+                                    {(field.options || []).map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+                                </select>
+                            ) : (
+                                <input value={currentVal} placeholder={field.matched_label || ''} onChange={e => updatePublishValue(item, field.key, e.target.value)} />
+                            )}
+                        </label>
+                    );
+                })}
             </div>
         </div>
     );

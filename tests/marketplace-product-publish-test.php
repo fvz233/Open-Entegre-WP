@@ -223,6 +223,21 @@ check($hb_item['attributes']['price'] === '111,00', 'Hepsiburada category commis
 check($hb_item['attributes']['material'] === 'Çelik', 'Hepsiburada enum value mapping failed.');
 check($hb_item['attributes']['Image1'] === 'http://example.test/7.jpg', 'Hepsiburada HTTP image mapping failed.');
 
+$hb_custom_mapping = array(
+    'category_id' => '123',
+    'brand_name' => 'Meşale',
+    'attribute_definitions' => array(
+        array('id' => 'model', 'name' => 'Model', 'required' => true, 'values' => array(array('id' => '1', 'name' => 'Model A'))),
+    ),
+    'attributes' => array(
+        array('attributeId' => 'model', 'attributeValue' => 'Özel Çay Kazanı Modeli'),
+    ),
+);
+$hb_custom_item = $hepsiburada->build_product_item_from_product($product, $hb_custom_mapping);
+check(!is_wp_error($hb_custom_item) && $hb_custom_item['attributes']['model'] === 'Özel Çay Kazanı Modeli', 'Hepsiburada custom attribute value mapping failed.');
+$hb_override_item = $hepsiburada->build_product_item_from_product($product, $hb_custom_mapping, array('attribute_model' => 'Ürün Bazlı Model'));
+check(!is_wp_error($hb_override_item) && $hb_override_item['attributes']['model'] === 'Ürün Bazlı Model', 'Hepsiburada attribute override failed.');
+
 $GLOBALS['hepsiburada_parent'] = new HepsiburadaParentProduct();
 $hb_variation_mapping = array(
     'category_id' => '123',
