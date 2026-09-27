@@ -205,6 +205,9 @@ class HepsiburadaMarketplace extends BaseMarketplace
         foreach ((array) ($category_mapping['attributes'] ?? array()) as $item) {
             if (!empty($item['attributeId'])) $mapped[(string) $item['attributeId']] = (string) (($item['attributeValueIds'][0] ?? null) ?: ($item['attributeValue'] ?? ''));
         }
+        $variation_source = trim((string) ($overrides['variation_attribute'] ?? ''));
+        $variation_target = $variation_source === '' ? '' : trim((string) ($overrides['variation_target_attribute_id'] ?? ''));
+        $variation_value = $this->variation_value($product, $parent, $variation_source);
         $attributes = array();
         foreach ((array) ($category_mapping['attribute_definitions'] ?? array()) as $definition) {
             $id = (string) ($definition['id'] ?? '');
@@ -212,13 +215,14 @@ class HepsiburadaMarketplace extends BaseMarketplace
             $input = $value('attribute_' . $id, $mapped[$id] ?? '');
             $is_color = $this->normalized_name($definition['name'] ?? '') === 'renk';
             $is_variant = !empty($definition['varianter']);
-            $variation_value = $this->variation_value($product, $parent, $definition['name'] ?? '');
-            if ($input === '' && ($is_color || $is_variant)) $input = $variation_value;
+            $definition_variation_value = $variation_target === $id ? $variation_value : $this->variation_value($product, $parent, $definition['name'] ?? '');
+            if ($variation_target === $id && empty($overrides['attribute_' . $id])) $input = $definition_variation_value;
+            elseif ($input === '' && ($is_color || $is_variant)) $input = $definition_variation_value;
             $is_desi = $this->normalized_name($definition['name'] ?? '') === 'desi';
             if ($input === '' && $is_desi) $input = $this->get_product_desi($product);
             $resolved = $this->attribute_value($input, (array) ($definition['values'] ?? array()));
             if ($resolved !== '') $attributes[$id] = $resolved;
-            elseif ((!empty($definition['required']) && strpos($this->normalized_name($definition['name'] ?? ''), 'paket gorseli') !== 0) || ($parent && ($is_color || $is_variant))) $missing[] = array('key' => 'attribute_' . $id, 'label' => (string) ($definition['name'] ?? $id), 'type' => !empty($definition['values']) ? 'select' : 'text', 'options' => (array) ($definition['values'] ?? array()), 'suggested_value' => $variation_value, 'allow_custom' => true);
+            elseif ((!empty($definition['required']) && strpos($this->normalized_name($definition['name'] ?? ''), 'paket gorseli') !== 0) || ($parent && ($is_color || $is_variant))) $missing[] = array('key' => 'attribute_' . $id, 'label' => (string) ($definition['name'] ?? $id), 'type' => !empty($definition['values']) ? 'select' : 'text', 'options' => (array) ($definition['values'] ?? array()), 'suggested_value' => $definition_variation_value, 'allow_custom' => true);
         }
 
         $regular = $this->apply_product_commission($product->get_regular_price(), $product, $category_mapping['commission_rate'] ?? null);

@@ -280,6 +280,13 @@ $hb_option_variation = $hepsiburada->build_product_item_from_product(new Hepsibu
     'attribute_definitions' => array(array('id' => 'secenek_variant_property', 'name' => 'Seçenek', 'required' => true, 'varianter' => true, 'values' => array())),
 ));
 check(!is_wp_error($hb_option_variation) && $hb_option_variation['attributes']['secenek_variant_property'] === 'Italyan Kalın Diş', 'Hepsiburada option variation field failed.');
+$hb_mapped_option_variation = $hepsiburada->build_product_item_from_product(new HepsiburadaOptionVariationProduct(), array(
+    'category_id' => '123',
+    'brand_name' => 'Demsu',
+    'attributes' => array(array('attributeId' => 'color', 'attributeValue' => 'Metal')),
+    'attribute_definitions' => array(array('id' => 'color', 'name' => 'Renk', 'required' => true, 'varianter' => true, 'values' => array())),
+), array('variation_attribute' => 'Seçenek', 'variation_target_attribute_id' => 'color'));
+check(!is_wp_error($hb_mapped_option_variation) && $hb_mapped_option_variation['attributes']['color'] === 'Italyan Kalın Diş', 'Hepsiburada selected variation mapping did not override the category default.');
 
 $multipart = $hepsiburada->multipart(array(array('categoryId' => 123, 'merchant' => 'merchant-1', 'attributes' => $hb_item['attributes'])));
 check(strpos($multipart, 'filename="products.json"') !== false && strpos($multipart, '"merchant":"merchant-1"') !== false, 'Hepsiburada multipart JSON failed.');
