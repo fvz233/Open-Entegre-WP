@@ -84,6 +84,7 @@ class N11VariableParent extends MarketplacePublishProduct
     public function is_type($type) { return $type === 'variable'; }
     public function get_id() { return 31; }
     public function get_sku() { return 'PARENT-SKU'; }
+    public function get_meta($key) { return substr((string) $key, -9) === 'image_url' ? 'http://example.test/7.jpg' : ''; }
     public function get_gallery_image_ids() { return array(8); }
     public function get_children() { return array(41, 42); }
 }
@@ -99,6 +100,11 @@ class N11VariationProduct extends MarketplacePublishProduct
     public function get_sku() { return $this->sku; }
     public function get_image_id() { return 9; }
     public function get_attributes() { return array('pa_renk' => 'colorfull'); }
+}
+
+class VariationWithoutOwnImage extends N11VariationProduct
+{
+    public function get_image_id($context = 'view') { return $context === 'edit' ? 0 : 7; }
 }
 
 class HepsiburadaParentProduct extends MarketplacePublishProduct
@@ -161,6 +167,18 @@ $n11_variation = (new MultiSync\Marketplaces\N11Marketplace())->build_product_it
 check(!is_wp_error($n11_variation) && $n11_variation['productMainId'] === 'PARENT-SKU' && $n11_variation['stockCode'] === 'COLORFULL-SKU', 'n11 variation identifiers were not separated.');
 check($n11_variation['attributes'][0]['customValue'] === 'Colorfull', 'n11 variation attribute was not mapped.');
 check(array_column($n11_variation['images'], 'url') === array('http://example.test/9.jpg'), 'n11 variation payload included parent images.');
+$variation_without_image = new VariationWithoutOwnImage(43, 'NO-IMAGE-SKU');
+foreach (array(
+    array(MultiSync\Marketplaces\N11Marketplace::class, 'product_images'),
+    array(MultiSync\Marketplaces\PazaramaMarketplace::class, 'pazarama_images'),
+    array(MultiSync\Marketplaces\CiceksepetiMarketplace::class, 'ciceksepeti_images'),
+    array(MultiSync\Marketplaces\PttAvmMarketplace::class, 'ptt_images'),
+    array(MultiSync\Marketplaces\HepsiburadaMarketplace::class, 'product_images'),
+) as $image_method) {
+    $method = new ReflectionMethod($image_method[0], $image_method[1]);
+    $method->setAccessible(true);
+    check($method->invoke(new $image_method[0](), $variation_without_image, $GLOBALS['woo_products'][31], '') === array(), $image_method[0] . ' variation payload included parent images.');
+}
 $n11_standalone_variation = (new MultiSync\Marketplaces\N11Marketplace())->build_product_item_from_product($GLOBALS['woo_products'][41], array(
     'shipment_template' => 'Global Standart',
 ), array('category_id' => '100', 'vat_rate' => '20'));
@@ -206,6 +224,8 @@ $amazon = (new MultiSync\Marketplaces\AmazonMarketplace())->build_product_item_f
 check(!is_wp_error($amazon) && $amazon['productType'] === 'PRODUCT' && isset($amazon['attributes']['purchasable_offer']), 'Amazon listing payload failed.');
 check($amazon['attributes']['purchasable_offer'][0]['our_price'][0]['schedule'][0]['value_with_tax'] === 133.0, 'Amazon category commission failed.');
 check($amazon['attributes']['main_product_image_locator'][0]['media_location'] === 'http://example.test/7.jpg', 'Amazon HTTP image mapping failed.');
+$amazon_variation_without_image = (new MultiSync\Marketplaces\AmazonMarketplace())->build_product_item_from_product($variation_without_image, array(), array('category_id' => 'PRODUCT', 'brand' => 'Demsu', 'barcode' => '8690000000002'));
+check(!is_wp_error($amazon_variation_without_image) && !isset($amazon_variation_without_image['attributes']['main_product_image_locator']), 'Amazon variation payload included the parent image.');
 
 $ptt = (new MultiSync\Marketplaces\PttAvmMarketplace())->build_product_item_from_product($product, array('commission_rate' => 10), array('category_id' => '55', 'vat_rate' => '20', 'desi' => '1'));
 check(!is_wp_error($ptt) && $ptt['barcode'] === '8690000000001' && $ptt['priceWithVat'] === 111.0, 'PTTAVM product payload failed.');

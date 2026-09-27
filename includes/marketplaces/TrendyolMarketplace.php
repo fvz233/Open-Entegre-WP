@@ -770,10 +770,8 @@ class TrendyolMarketplace extends BaseMarketplace
             return new \WP_Error('multi_sync_trendyol_product_price', 'Urun fiyati sifirdan buyuk olmali.');
         }
 
-        $image_ids = array($product->get_image_id());
-        if ($parent) {
-            $image_ids = array_merge($image_ids, array($parent->get_image_id()), $parent->get_gallery_image_ids());
-        } else {
+        $image_ids = array($product->get_image_id($parent ? 'edit' : 'view'));
+        if (!$parent) {
             $image_ids = array_merge($image_ids, $product->get_gallery_image_ids());
         }
         $images = array();

@@ -411,7 +411,7 @@ class AmazonMarketplace extends BaseMarketplace
         $value = function ($key, $fallback = '') use ($overrides, $product, $parent) {
             if (isset($overrides[$key]) && trim((string) $overrides[$key]) !== '') return trim((string) $overrides[$key]);
             $stored = trim((string) $product->get_meta('_multi_sync_amazon_' . $key, true));
-            if ($stored === '' && $parent) $stored = trim((string) $parent->get_meta('_multi_sync_amazon_' . $key, true));
+            if ($stored === '' && $parent && $key !== 'image_url') $stored = trim((string) $parent->get_meta('_multi_sync_amazon_' . $key, true));
             return $stored !== '' ? $stored : $fallback;
         };
         $sku = $value('sku', $product->get_sku());
@@ -424,7 +424,7 @@ class AmazonMarketplace extends BaseMarketplace
         $source = $parent ?: $product;
         $description = $source->get_description() ?: $source->get_short_description() ?: $source->get_name();
         $image = $value('image_url');
-        if ($image === '') $image = wp_get_attachment_url($product->get_image_id() ?: $source->get_image_id()) ?: '';
+        if ($image === '') $image = wp_get_attachment_url($product->get_image_id($parent ? 'edit' : 'view')) ?: '';
         $price = $this->build_price_inventory_item_from_product($product, true, true, $category_mapping['commission_rate'] ?? null);
         if (!$price || $price['price'] <= 0) return new \WP_Error('multi_sync_amazon_product_price', 'Urun fiyati sifirdan buyuk olmali.');
         $attributes = array(

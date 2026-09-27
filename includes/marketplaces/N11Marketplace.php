@@ -366,7 +366,7 @@ class N11Marketplace extends BaseMarketplace
                 return trim((string) $overrides[$key]);
             }
             $stored = trim((string) $product->get_meta('_multi_sync_n11_' . $key, true));
-            if ($stored === '' && $parent) {
+            if ($stored === '' && $parent && $key !== 'image_url') {
                 $stored = trim((string) $parent->get_meta('_multi_sync_n11_' . $key, true));
             }
             return $stored !== '' ? $stored : $fallback;
@@ -508,7 +508,7 @@ class N11Marketplace extends BaseMarketplace
     private function product_images($product, $parent, $override = '')
     {
         $ids = $parent
-            ? array($product->get_image_id())
+            ? array($product->get_image_id('edit'))
             : array_merge(array($product->get_image_id()), $product->get_gallery_image_ids());
         $images = array();
         if (preg_match('#^https?://#i', $override)) $images[] = array('url' => esc_url_raw($override), 'order' => 0);

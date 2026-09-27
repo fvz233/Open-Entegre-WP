@@ -121,6 +121,11 @@ class DesignVariationProduct extends ColorVariationProduct
     public function get_attributes() { return array('pa_renk' => 'Gümüş', 'pa_tasarim' => 'Osmanlı Arması'); }
 }
 
+class VariationWithoutOwnImage extends ColorVariationProduct
+{
+    public function get_image_id($context = 'view') { return $context === 'edit' ? 0 : 7; }
+}
+
 $item = (new MultiSync\Marketplaces\TrendyolMarketplace())->build_product_item_from_product(new PublishProduct());
 check(!is_wp_error($item), 'Valid Woo product was rejected.');
 check($item['barcode'] === 'SKU-1' && $item['categoryId'] === 34 && $item['salePrice'] === 90.0, 'Trendyol payload mapping failed.');
@@ -154,6 +159,8 @@ $unmapped_fields = is_wp_error($unmapped_variation) ? array_column($unmapped_var
 check(in_array('variation_attribute', $unmapped_fields, true) && in_array('variation_target_attribute_id', $unmapped_fields, true), 'Unselected variation mapping was accepted.');
 $standalone_variation = $category_fixture->build_product_item_from_product(new ColorVariationProduct('Inox'), array('category_id' => 34));
 check(!is_wp_error($standalone_variation) && $standalone_variation['productMainId'] === $standalone_variation['stockCode'], 'A category without variant fields did not export the variation as a standalone product.');
+$variation_without_image = $category_fixture->build_product_item_from_product(new VariationWithoutOwnImage('Inox'), array('category_id' => 34));
+check(is_wp_error($variation_without_image) && in_array('image_url', array_column($variation_without_image->get_error_data()['fields'], 'key'), true), 'Trendyol variation payload included the parent image.');
 foreach (array('Osmanlı Arması', 'Türk Bayraklı', 'Inox') as $color) {
     $variation = $category_fixture->build_product_item_from_product(new ColorVariationProduct($color), array(
         'category_id' => 34,

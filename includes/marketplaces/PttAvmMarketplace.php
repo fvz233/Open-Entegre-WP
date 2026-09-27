@@ -447,7 +447,7 @@ class PttAvmMarketplace extends BaseMarketplace
         $value = function ($key, $fallback = '') use ($overrides, $product, $parent) {
             if (isset($overrides[$key]) && trim((string) $overrides[$key]) !== '') return trim((string) $overrides[$key]);
             $stored = trim((string) $product->get_meta('_multi_sync_pttavm_' . $key, true));
-            if ($stored === '' && $parent) $stored = trim((string) $parent->get_meta('_multi_sync_pttavm_' . $key, true));
+            if ($stored === '' && $parent && $key !== 'image_url') $stored = trim((string) $parent->get_meta('_multi_sync_pttavm_' . $key, true));
             return $stored !== '' ? $stored : $fallback;
         };
         $sku = $value('sku', $product->get_sku());
@@ -513,7 +513,7 @@ class PttAvmMarketplace extends BaseMarketplace
 
     private function ptt_images($product, $parent, $override)
     {
-        $ids = array_merge(array($product->get_image_id()), $parent ? array($parent->get_image_id()) : array(), $parent ? $parent->get_gallery_image_ids() : $product->get_gallery_image_ids());
+        $ids = array_merge(array($product->get_image_id($parent ? 'edit' : 'view')), $parent ? array() : $product->get_gallery_image_ids());
         $images = preg_match('#^https?://#', $override) ? array(array('url' => esc_url_raw($override))) : array();
         foreach (array_unique(array_filter($ids)) as $id) { $url = wp_get_attachment_url($id); if (preg_match('#^https?://#', (string) $url)) $images[] = array('url' => $url); if (count($images) === 8) break; }
         return $images;
