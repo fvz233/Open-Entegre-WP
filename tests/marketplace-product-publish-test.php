@@ -112,7 +112,13 @@ class HepsiburadaVariationProduct extends MarketplacePublishProduct
     public function is_type($type) { return $type === 'variation'; }
     public function get_parent_id() { return 21; }
     public function get_sku() { return 'variant 1'; }
+    public function get_name() { return 'Test Urunu - Osmanlı'; }
     public function get_attributes() { return array('Renk' => 'osmanlı'); }
+}
+
+class HepsiburadaOptionVariationProduct extends HepsiburadaVariationProduct
+{
+    public function get_attributes() { return array('Seçenek' => 'italyan-kalın-diş'); }
 }
 
 $product = new MarketplacePublishProduct();
@@ -246,7 +252,14 @@ $hb_variation_mapping = array(
 $hb_variation = $hepsiburada->build_product_item_from_product(new HepsiburadaVariationProduct(), $hb_variation_mapping);
 check(!is_wp_error($hb_variation) && $hb_variation['attributes']['merchantSku'] === 'VARIANT1' && $hb_variation['attributes']['VaryantGroupID'] === 'PARENT1', 'Hepsiburada variation grouping failed.');
 check($hb_variation['attributes']['Barcode'] === 'MSLSTR-VARIANT1', 'Hepsiburada variation barcode prefix or stock code mapping failed.');
+check($hb_variation['attributes']['UrunAdi'] === 'Test Urunu', 'Hepsiburada variation title must use the shared parent product name.');
 check($hb_variation['attributes']['color'] === 'Osmanlı', 'Hepsiburada variation color failed.');
+$hb_option_variation = $hepsiburada->build_product_item_from_product(new HepsiburadaOptionVariationProduct(), array(
+    'category_id' => '123',
+    'brand_name' => 'Demsu',
+    'attribute_definitions' => array(array('id' => 'secenek_variant_property', 'name' => 'Seçenek', 'required' => true, 'varianter' => true, 'values' => array())),
+));
+check(!is_wp_error($hb_option_variation) && $hb_option_variation['attributes']['secenek_variant_property'] === 'Italyan Kalın Diş', 'Hepsiburada option variation field failed.');
 
 $multipart = $hepsiburada->multipart(array(array('categoryId' => 123, 'merchant' => 'merchant-1', 'attributes' => $hb_item['attributes'])));
 check(strpos($multipart, 'filename="products.json"') !== false && strpos($multipart, '"merchant":"merchant-1"') !== false, 'Hepsiburada multipart JSON failed.');

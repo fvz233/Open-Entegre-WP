@@ -206,18 +206,19 @@ class HepsiburadaMarketplace extends BaseMarketplace
             if (!empty($item['attributeId'])) $mapped[(string) $item['attributeId']] = (string) (($item['attributeValueIds'][0] ?? null) ?: ($item['attributeValue'] ?? ''));
         }
         $attributes = array();
-        $color = $this->variation_color($product, $parent);
         foreach ((array) ($category_mapping['attribute_definitions'] ?? array()) as $definition) {
             $id = (string) ($definition['id'] ?? '');
             if ($id === '' || $this->normalized_name($definition['name'] ?? '') === 'marka') continue;
             $input = $value('attribute_' . $id, $mapped[$id] ?? '');
             $is_color = $this->normalized_name($definition['name'] ?? '') === 'renk';
-            if ($input === '' && $is_color) $input = $color;
+            $is_variant = !empty($definition['varianter']);
+            $variation_value = $this->variation_value($product, $parent, $definition['name'] ?? '');
+            if ($input === '' && ($is_color || $is_variant)) $input = $variation_value;
             $is_desi = $this->normalized_name($definition['name'] ?? '') === 'desi';
             if ($input === '' && $is_desi) $input = $this->get_product_desi($product);
             $resolved = $this->attribute_value($input, (array) ($definition['values'] ?? array()));
             if ($resolved !== '') $attributes[$id] = $resolved;
-            elseif ((!empty($definition['required']) && strpos($this->normalized_name($definition['name'] ?? ''), 'paket gorseli') !== 0) || ($parent && $is_color)) $missing[] = array('key' => 'attribute_' . $id, 'label' => (string) ($definition['name'] ?? $id), 'type' => !empty($definition['values']) ? 'select' : 'text', 'options' => (array) ($definition['values'] ?? array()), 'suggested_value' => $is_color ? $color : '', 'allow_custom' => true);
+            elseif ((!empty($definition['required']) && strpos($this->normalized_name($definition['name'] ?? ''), 'paket gorseli') !== 0) || ($parent && ($is_color || $is_variant))) $missing[] = array('key' => 'attribute_' . $id, 'label' => (string) ($definition['name'] ?? $id), 'type' => !empty($definition['values']) ? 'select' : 'text', 'options' => (array) ($definition['values'] ?? array()), 'suggested_value' => $variation_value, 'allow_custom' => true);
         }
 
         $regular = $this->apply_product_commission($product->get_regular_price(), $product, $category_mapping['commission_rate'] ?? null);
@@ -235,7 +236,7 @@ class HepsiburadaMarketplace extends BaseMarketplace
             'merchantSku' => $sku,
             'Barcode' => 'MSLSTR-' . $sku,
             'VaryantGroupID' => $group,
-            'UrunAdi' => mb_substr($this->product_export_name($product, $parent), 0, 200),
+            'UrunAdi' => mb_substr(trim(wp_strip_all_tags((string) $source->get_name())), 0, 200),
             'UrunAciklamasi' => wp_strip_all_tags($description),
             'Marka' => $brand,
             'price' => number_format($price, 2, ',', ''),
@@ -316,12 +317,12 @@ class HepsiburadaMarketplace extends BaseMarketplace
         return (string) $input;
     }
 
-    private function variation_color($product, $parent)
+    private function variation_value($product, $parent, $target_name)
     {
         if (!$parent || !is_callable(array($product, 'get_attributes'))) return '';
         foreach ((array) $product->get_attributes() as $name => $value) {
             $label = function_exists('wc_attribute_label') ? wc_attribute_label($name, $parent) : $name;
-            if ($this->normalized_name($label) !== 'renk' && count($product->get_attributes()) !== 1) continue;
+            if ($this->normalized_name($label) !== $this->normalized_name($target_name) && count($product->get_attributes()) !== 1) continue;
             if (taxonomy_exists($name)) { $term = get_term_by('slug', $value, $name); if ($term && !is_wp_error($term)) return (string) $term->name; }
             return mb_convert_case(str_replace('-', ' ', (string) $value), MB_CASE_TITLE, 'UTF-8');
         }
